@@ -150,6 +150,8 @@ def _reference_index(source: str) -> dict[str, ReferenceTarget]:
     appendix_mode = False
     chapter_number = ""
     current: ReferenceTarget | None = None
+    chapter_target: ReferenceTarget | None = None
+    section_target: ReferenceTarget | None = None
 
     for match in token_pattern.finditer(source):
         begin = match.group("begin")
@@ -178,7 +180,12 @@ def _reference_index(source: str) -> dict[str, ReferenceTarget]:
             continue
         if heading is not None:
             if match.group("star"):
-                current = None
+                if heading == "chapter":
+                    current = None
+                elif heading == "section":
+                    current = chapter_target
+                else:
+                    current = section_target or chapter_target
                 continue
             if heading == "chapter":
                 if appendix_mode:
@@ -194,6 +201,8 @@ def _reference_index(source: str) -> dict[str, ReferenceTarget]:
                 figure = 0
                 table = 0
                 equation = 0
+                chapter_target = current
+                section_target = None
             elif heading == "section":
                 section += 1
                 subsection = 0
@@ -201,6 +210,7 @@ def _reference_index(source: str) -> dict[str, ReferenceTarget]:
                     "sezione",
                     _number_with_chapter(chapter_number, section),
                 )
+                section_target = current
             else:
                 subsection += 1
                 current = ReferenceTarget(

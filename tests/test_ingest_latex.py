@@ -68,7 +68,10 @@ def test_citations_are_excluded_and_appendix_references_remain_readable(
     source.write_text(
         "\\chapter{Primo capitolo}\n\\label{chap:first}\n"
         "\\chapter{Secondo capitolo}\n\\label{chap:second}\n\n"
-        "Una fonte \\cite{book:source} nel \\autoref{chap:second} "
+        "\\section{Sezione numerata}\n"
+        "\\subsection*{Dettaglio non numerato}\n\\label{sec:detail}\n"
+        "Una fonte \\cite{book:source} nella \\autoref{sec:detail}, "
+        "nel \\autoref{chap:second} "
         "e un dato al 5\\% nell'\\appref{app:data}.\n"
         "\\begin{appendices}\n"
         "\\chapter{Dati}\n"
@@ -84,7 +87,9 @@ def test_citations_are_excluded_and_appendix_references_remain_readable(
     mapped = extract_latex(source, "source/main.tex")
 
     paragraph = next(block for block in mapped.blocks if block.kind is BlockKind.PARAGRAPH)
-    assert paragraph.text == ("Una fonte nel capitolo 2 e un dato al 5% nell’appendice A.5.")
+    assert paragraph.text == (
+        "Una fonte nella sezione 2.1, nel capitolo 2 e un dato al 5% nell’appendice A.5."
+    )
     assert mapped.exclusions[0].reason_code == "inline-citations"
     assert "1 citation commands excluded" in mapped.warnings[1]
     assert all("unresolved" not in warning for warning in mapped.warnings)
