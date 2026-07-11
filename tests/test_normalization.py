@@ -121,6 +121,7 @@ def test_document_normalization_preserves_display_text_and_source_order(
 
     normalized = normalize_document(
         document,
+        book_document_sha256="c" * 64,
         normalization_version="it-v1",
         lexicons=lexicons,
     )

@@ -86,6 +86,7 @@ def test_normalize_book_writes_dependent_artifact_report_and_summary(tmp_path: P
     report = store.resolve(NORMALIZATION_REPORT_PATH).read_text(encoding="utf-8")
     assert normalized.blocks[0].display_text == "L'ETF rende il 5%."
     assert normalized.blocks[0].spoken_text == "L'et effe rende il cinque per cento."
+    assert normalized.book_document_sha256 == store.reference(DOCUMENT_PATH).sha256
     assert summary.block_count == 1
     assert summary.transformation_count == 2
     assert summary.lexicon_application_count == 1

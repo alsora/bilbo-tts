@@ -54,6 +54,7 @@ def normalize_book(config_path: Path, project_root: Path) -> NormalizeSummary:
     lexicons = load_lexicons(context.book_dir, context.config.normalization.lexicons)
     normalized = normalize_document(
         document,
+        book_document_sha256=document_reference.sha256,
         normalization_version=context.config.normalization.version,
         lexicons=lexicons,
     )

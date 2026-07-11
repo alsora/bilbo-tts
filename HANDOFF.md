@@ -16,7 +16,7 @@
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, all 113 tests, and 93.43 percent coverage.
+- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, all 113 tests, and 93.42 percent coverage.
 - Fixture pipelines run `ingest → normalize → chunk`, match byte-exact artifacts, reports, and summaries, and remain byte-idempotent without model downloads.
 - Target normalization processed 2,200 blocks with 3,276 transformations, 145 lexicon applications, and 140 full-book warnings.
 - Target chunking produced 6,480 chunks with no limit outlier and a maximum length of exactly 300 characters.

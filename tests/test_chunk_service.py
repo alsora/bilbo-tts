@@ -22,6 +22,7 @@ from bilbo_tts.models import (
     SourceLocation,
 )
 from bilbo_tts.normalization import normalize_book
+from bilbo_tts.normalization.service import NORMALIZED_PATH
 
 
 def _document(text: str) -> BookDocument:
@@ -87,6 +88,7 @@ def test_chunk_book_writes_manifest_report_and_summary(tmp_path: Path) -> None:
     report = store.resolve(CHUNK_REPORT_PATH).read_text(encoding="utf-8")
     assert summary.chunk_count == len(manifest.chunks)
     assert summary.largest_chunk_characters <= 30
+    assert manifest.normalized_document_sha256 == store.reference(NORMALIZED_PATH).sha256
     assert [chunk.sequence for chunk in manifest.chunks] == list(range(len(manifest.chunks)))
     assert "## Source-to-chunk mapping" in report
     assert "`block-1`" in report

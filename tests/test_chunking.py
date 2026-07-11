@@ -20,7 +20,9 @@ from bilbo_tts.models import (
     SourceFormat,
     SourceLocation,
 )
-from bilbo_tts.serialization import canonical_sha256
+
+BOOK_REFERENCE_SHA256 = "c" * 64
+NORMALIZED_REFERENCE_SHA256 = "d" * 64
 
 
 def _documents() -> tuple[BookDocument, NormalizedDocument]:
@@ -66,7 +68,7 @@ def _documents() -> tuple[BookDocument, NormalizedDocument]:
     )
     normalized = NormalizedDocument(
         book_id="book",
-        book_document_sha256=canonical_sha256(document),
+        book_document_sha256=BOOK_REFERENCE_SHA256,
         normalization_version="it-v1",
         lexicon_sha256="b" * 64,
         blocks=tuple(
@@ -104,6 +106,8 @@ def test_chunk_manifest_preserves_text_order_ids_and_pause_semantics() -> None:
     manifest = build_chunk_manifest(
         document,
         normalized,
+        book_document_sha256=BOOK_REFERENCE_SHA256,
+        normalized_document_sha256=NORMALIZED_REFERENCE_SHA256,
         max_characters=20,
         pauses=PauseConfig(sentence_ms=250, paragraph_ms=600, chapter_ms=1500),
     )
@@ -133,13 +137,15 @@ def test_chunk_manifest_preserves_text_order_ids_and_pause_semantics() -> None:
 
 def test_chunking_rejects_stale_or_mismatched_normalized_documents() -> None:
     document, normalized = _documents()
-    stale = normalized.model_copy(update={"book_document_sha256": "c" * 64})
+    stale = normalized.model_copy(update={"book_document_sha256": "e" * 64})
     missing = normalized.model_copy(update={"blocks": normalized.blocks[:-1]})
 
     with pytest.raises(ChunkingError, match="current canonical"):
         build_chunk_manifest(
             document,
             stale,
+            book_document_sha256=BOOK_REFERENCE_SHA256,
+            normalized_document_sha256=NORMALIZED_REFERENCE_SHA256,
             max_characters=100,
             pauses=PauseConfig(),
         )
@@ -147,6 +153,8 @@ def test_chunking_rejects_stale_or_mismatched_normalized_documents() -> None:
         build_chunk_manifest(
             document,
             missing,
+            book_document_sha256=BOOK_REFERENCE_SHA256,
+            normalized_document_sha256=NORMALIZED_REFERENCE_SHA256,
             max_characters=100,
             pauses=PauseConfig(),
         )

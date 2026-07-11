@@ -11,7 +11,6 @@ from bilbo_tts.models import (
 )
 from bilbo_tts.normalization.lexicon import LoadedLexicons
 from bilbo_tts.normalization.rules import apply_rules
-from bilbo_tts.serialization import canonical_sha256
 
 
 class NormalizationError(ValueError):
@@ -35,6 +34,7 @@ def normalize_text(
 def normalize_document(
     document: BookDocument,
     *,
+    book_document_sha256: str,
     normalization_version: str,
     lexicons: LoadedLexicons,
 ) -> NormalizedDocument:
@@ -69,7 +69,7 @@ def normalize_document(
             )
     return NormalizedDocument(
         book_id=document.book_id,
-        book_document_sha256=canonical_sha256(document),
+        book_document_sha256=book_document_sha256,
         normalization_version=normalization_version,
         lexicon_sha256=lexicons.sha256,
         blocks=tuple(blocks),

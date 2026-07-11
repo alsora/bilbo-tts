@@ -13,7 +13,6 @@ from bilbo_tts.models import (
     NormalizedDocument,
     PauseMetadata,
 )
-from bilbo_tts.serialization import canonical_sha256
 
 _PROTECTED_PERIOD = "\ue000"
 _ABBREVIATIONS = (
@@ -91,6 +90,8 @@ def build_chunk_manifest(
     document: BookDocument,
     normalized: NormalizedDocument,
     *,
+    book_document_sha256: str,
+    normalized_document_sha256: str,
     max_characters: int,
     pauses: PauseConfig,
 ) -> ChunkManifest:
@@ -100,8 +101,7 @@ def build_chunk_manifest(
         raise ChunkingError(
             f"normalized document belongs to {normalized.book_id!r}, expected {document.book_id!r}"
         )
-    expected_document_sha = canonical_sha256(document)
-    if normalized.book_document_sha256 != expected_document_sha:
+    if normalized.book_document_sha256 != book_document_sha256:
         raise ChunkingError(
             "normalized document does not reference the current canonical book document"
         )
@@ -151,7 +151,7 @@ def build_chunk_manifest(
                     )
     return ChunkManifest(
         book_id=document.book_id,
-        normalized_document_sha256=canonical_sha256(normalized),
+        normalized_document_sha256=normalized_document_sha256,
         chunks=tuple(chunks),
     )
 
