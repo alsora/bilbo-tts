@@ -2,20 +2,19 @@
 
 ## Current state
 
-- The active branch is `main` at `68e3fb7`, four commits ahead of `origin/main`.
-- Milestone 3 is merged, while checkpoint C3 still awaits the user's report approval.
+- The active branch is `main` at `374f81a` and is synchronized with `origin/main`.
+- Checkpoint C3 is approved after human review of chapter 2 extraction, normalization, and chunking.
 - The private target source and generated reports remain only under ignored `work/c2-target-project/`.
-- The compact normalization, extraction, chunking, and chapter-review report changes are committed.
-- Typographic punctuation preservation is committed.
-- Grouped decimal pronunciation is committed.
-- Intentional uncommitted changes improve forced intra-sentence split selection.
+- The intentional working-tree changes are this handoff update and the Milestone 4 execution plan.
 
-## Uncommitted work
+## Completed work
 
-- A sentence that fits in two chunks prefers semicolons and colons over commas while avoiding fragments shorter than one quarter of the configured limit.
-- Longer sentences retain the latest-punctuation behavior to avoid increasing the chunk count.
-- `block-000016.s0001` now splits at the colon into 84- and 240-character chunks instead of splitting before `hanno`.
-- README and design guidance and a target-sentence regression test reflect the chunking policy.
+- Milestone 3 provides deterministic Italian normalization, reviewed lexicons, bounded equation speech, auditable transformations, sentence-aware chunking, stable identifiers, and explicit pause metadata.
+- Full-book reports are compact summaries, while `review-extraction` and `review-chunking` generate complete chapter-scoped reports.
+- Typographic apostrophes and quotation marks remain in `spoken_text`; equivalent variants are deferred to ASR comparison or qualified engine-specific handling.
+- Decimal fractions use grouped Italian pronunciation with significant leading zeros preserved.
+- Forced two-part sentence splits avoid short fragments and prefer semicolons and colons over commas without increasing the chunk count.
+- Relevant report and text fixes are commits `6ad4372`, `b11cd30`, `9a4857b`, `68e3fb7`, and `374f81a`.
 
 ## Verification
 
@@ -27,18 +26,16 @@
 - Target normalization contains 2,200 blocks, 1,890 transformations, 145 lexicon applications, and 140 full-book warnings.
 - Target chunking contains 6,480 chunks, 335 forced intra-sentence splits, no invariant anomaly, and a maximum length of exactly 300 characters.
 - Focused `chapter-0002` extraction and chunking reports contain 35 source blocks and 133 chunks.
+- The user approved chapter 2 blocks `block-000005` through `block-000039` with no checkpoint warning remaining.
 
 ## Durable references
 
 - Architecture and stable policy are owned by [`design.md`](design.md).
 - Milestones and checkpoint criteria are owned by [`implementation.md`](implementation.md).
+- The next-session C4 execution plan is [`milestone-4-plan.md`](milestone-4-plan.md).
 - Repository working conventions are owned by [`AGENTS.md`](AGENTS.md).
 
 ## Next action
 
-- Review `work/c2-target-project/work/tts-investimento/reports/review/chapter-0002-extraction.md`.
-- Review `work/c2-target-project/work/tts-investimento/reports/normalization.md` changes for `block-000005` through `block-000039`.
-- Review `work/c2-target-project/work/tts-investimento/reports/review/chapter-0002-chunking.md` and explicitly approve or reject checkpoint C3.
-- Commit the stronger-punctuation chunking fix after review.
+- Review and execute [`milestone-4-plan.md`](milestone-4-plan.md) from synchronized `main`.
 - Resolve the remaining 140 full-book warnings before a full-book text qualification, although they do not occur in the C3 review chapter.
-- Resume the milestone 4 implementation plan after C3 approval.
