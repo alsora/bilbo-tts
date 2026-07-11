@@ -328,6 +328,7 @@ BILBO_HARDWARE_TESTS=1 .tools/bin/pixi run -e kokoro pytest \
 
 The smoke tests use the same short committed Italian excerpt and are skipped unless `BILBO_HARDWARE_TESTS=1`.
 They resolve only the immutable model revisions recorded in the candidate configurations.
+Chatterbox requires macOS 15.1 or newer because earlier MPS frameworks reject long-output convolution even when the short smoke test passes.
 Run a complete candidate only after its smoke test passes:
 
 ```shell

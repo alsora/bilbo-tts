@@ -25,6 +25,11 @@ from bilbo_tts.tts.factory import create_tts_engine
 ROOT = Path(__file__).parents[1]
 
 
+@pytest.fixture(autouse=True)
+def supported_chatterbox_macos(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(chatterbox_adapter, "_macos_version", lambda: (26, 5, 2))
+
+
 class FakeMps:
     def __init__(self, available: bool = True) -> None:
         self.available = available
@@ -564,6 +569,14 @@ def test_chatterbox_health_and_actionable_dependency_load_and_memory_failures(
     engine = chatterbox_adapter.ChatterboxTtsEngine(config, ROOT)
     assert engine.health().healthy is True
     assert hub.calls == []
+
+    monkeypatch.setattr(chatterbox_adapter, "_macos_version", lambda: (14, 8, 7))
+    health = engine.health()
+    assert health.healthy is False
+    assert "macOS 15.1 or newer" in health.detail
+    with pytest.raises(TtsError, match="macOS 15.1 or newer"):
+        engine.synthesize(request(config))
+    monkeypatch.setattr(chatterbox_adapter, "_macos_version", lambda: (26, 5, 2))
 
     unavailable, *_rest = chatterbox_dependencies(available=False)
     monkeypatch.setattr(chatterbox_adapter, "_import_dependencies", lambda: unavailable)

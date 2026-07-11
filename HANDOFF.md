@@ -2,12 +2,13 @@
 
 ## Current state
 
-- The active branch is `milestone/c4-tts-qualification`; its implementation head before this handoff is `4cee05d`.
+- The active branch is `milestone/c4-tts-qualification` at user commit `5e225c3` before the current follow-up.
 - Checkpoint C3 is approved after human review of chapter 2 extraction, normalization, and chunking.
 - The private target source and generated reports remain only under ignored `work/c2-target-project/`.
-- Milestone 4 implementation commits are `8f24bb2`, `4f9340d`, and `4cee05d`.
+- Milestone 4 commits are `8f24bb2`, `4f9340d`, `4cee05d`, and `027e68b`.
 - Generated model caches, WAV files, qualification results, and ASR evidence remain under ignored `work/`.
-- The branch is not pushed because the required complete Chatterbox corpus check failed.
+- The user upgraded the target Mac from macOS 14.5 to Tahoe 26.5.2.
+- Both candidates now complete the fixed corpus, and the deterministic blind-listening package is ready.
 
 ## Completed work
 
@@ -25,12 +26,15 @@
 - `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, all 205 tests, 3 expected hardware skips, and 91.84 percent coverage.
 - Locked installation succeeds for the `chatterbox`, `kokoro`, and `asr` environments.
 - The Chatterbox hardware smoke test passes in 242.10 seconds.
-- The complete Chatterbox corpus is partial with 23 successes and one `long-01` MPS failure: `Output channels > 65536 not supported at the MPS device`.
-- The Chatterbox run records 900.47 seconds generation time, 124.96 seconds valid audio, and 4.93 GB process peak RSS.
+- On macOS 14.5, `long-01` reproducibly failed because its MPS framework rejected output channels above 65,536.
+- On Tahoe 26.5.2, Chatterbox completes all 24 excerpts in 873.13 seconds for 139.00 seconds of audio with 4.14 GB process peak RSS.
 - The Kokoro hardware smoke test passes in 16.26 seconds.
 - Kokoro completes all 24 excerpts in 25.15 seconds for 161.40 seconds of audio with 963.92 MB process peak RSS.
 - The MLX-Whisper hardware smoke test passes in 69.18 seconds.
+- MLX-Whisper scores all 24 Chatterbox excerpts with weighted WER 0.167116 and CER 0.182331.
 - MLX-Whisper scores all 24 Kokoro excerpts with weighted WER 0.161725 and CER 0.182331.
+- The listening package contains 48 opaque clips under `work/tts-qualification/listening/` with seed `20260711`.
+- The user reports that unblinded listening strongly favors Chatterbox, while formal blind ratings remain pending.
 
 ## Durable references
 
@@ -41,7 +45,7 @@
 
 ## Next action
 
-- Decide whether the reproducible Chatterbox MPS long-input failure disqualifies the candidate or warrants a separately reviewed backend or input-limit change.
-- Do not shorten the fixed corpus or hide the failure without an explicit qualification decision.
-- A complete second candidate is required before generating the blind-listening package.
-- Checkpoint C4 remains open until both default and fallback complete the corpus, blind listening is approved, and the final selection is recorded in `design.md`.
+- Complete `work/tts-qualification/listening/rating-sheet.md` without opening `mapping.json`.
+- Reveal the mapping only after all ratings are recorded.
+- Select the default and fallback from listening quality, stability, memory, and speed, then record the final decision in `design.md`.
+- Checkpoint C4 remains open only for the human blind-listening decision and final selection documentation.

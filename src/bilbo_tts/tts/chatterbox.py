@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import math
+import platform
 import random
 import threading
 from collections.abc import Callable
@@ -31,6 +32,7 @@ MODEL_REVISION = "5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18"
 CODE_REVISION = "65b18437192794391a0308a8f705b1e33e633948"
 SAMPLE_RATE_HZ = 24_000
 MAX_TEXT_CHARACTERS = 300
+MINIMUM_MACOS = (15, 1)
 WEIGHT_FILES = [
     "ve.pt",
     "t3_mtl23ls_v3.safetensors",
@@ -162,6 +164,8 @@ class ChatterboxTtsEngine:
     def health(self) -> TtsHealth:
         """Check imports and MPS availability without resolving model weights."""
 
+        if _macos_version() < MINIMUM_MACOS:
+            return self._health(False, _unsupported_macos_message())
         try:
             dependencies = _import_dependencies()
             if not dependencies.torch.backends.mps.is_available():
@@ -178,6 +182,8 @@ class ChatterboxTtsEngine:
         """Generate one request with global random states serialized."""
 
         validate_request(self.capabilities, request)
+        if _macos_version() < MINIMUM_MACOS:
+            raise TtsError(_unsupported_macos_message())
         if not 0 <= request.settings.seed <= 0xFFFFFFFF:
             raise TtsError("chatterbox seed must be between 0 and 4294967295")
         if request.settings.temperature is None:
@@ -408,3 +414,19 @@ def _file_sha256(path: Path) -> str:
 def _is_memory_error(error: Exception) -> bool:
     message = f"{type(error).__name__}: {error}".lower()
     return "outofmemory" in message or "out of memory" in message or "memory exhausted" in message
+
+
+def _macos_version() -> tuple[int, ...]:
+    version = platform.mac_ver()[0]
+    try:
+        return tuple(int(part) for part in version.split("."))
+    except ValueError:
+        return ()
+
+
+def _unsupported_macos_message() -> str:
+    detected = platform.mac_ver()[0] or "unknown"
+    return (
+        "chatterbox requires macOS 15.1 or newer for reliable PyTorch MPS generation; "
+        f"found macOS {detected}"
+    )

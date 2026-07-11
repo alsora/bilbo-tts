@@ -112,6 +112,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 ## Model and runtime strategy for a 16 GB Apple Silicon Mac
 
 - Quality candidate: Chatterbox Multilingual V3 through the official PyTorch MPS implementation because no maintained V3 MLX port exists.
+- Chatterbox requires macOS 15.1 or newer because earlier MPS frameworks reject the long-output convolution exercised by the qualification corpus.
 - It supports Italian and is MIT-licensed, but it may use roughly 14–16 GB, so a 16 GB Mac is borderline and may swap.
 - Keep Chatterbox as the first quality trial, not a hard dependency.
 - Lightweight baseline/fallback: Kokoro-82M through MLX, with Apache-2.0 weights. It is fast and small, but Italian voices have reported English-like G2P/prosody issues; do not select it solely from English demos.
