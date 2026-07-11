@@ -68,7 +68,7 @@ def split_to_limit(text: str, max_characters: int) -> tuple[str, ...]:
     parts: list[str] = []
     while len(remaining) > max_characters:
         window = remaining[: max_characters + 1]
-        split_at = _strong_split(window, max_characters)
+        split_at = _strong_split(remaining, max_characters)
         if split_at is None:
             split_at = window.rfind(" ", 0, max_characters + 1)
         if split_at is None or split_at <= 0:
@@ -156,13 +156,32 @@ def build_chunk_manifest(
     )
 
 
-def _strong_split(window: str, limit: int) -> int | None:
-    positions = [
-        match.end()
-        for match in re.finditer(r"[;,:](?:\s+|$)", window[: limit + 1])
+def _strong_split(text: str, limit: int) -> int | None:
+    candidates = [
+        (match.end(), 2 if match.group(0)[0] in ";:" else 1)
+        for match in re.finditer(r"[;,:](?:\s+|$)", text[: limit + 1])
         if match.end() <= limit
     ]
-    return positions[-1] if positions else None
+    if not candidates:
+        return None
+
+    minimum_part = max(1, limit // 4)
+    two_part_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate[0] >= minimum_part and minimum_part <= len(text) - candidate[0] <= limit
+    ]
+    if two_part_candidates:
+        strongest = max(strength for _, strength in two_part_candidates)
+        strongest_candidates = [
+            candidate for candidate in two_part_candidates if candidate[1] == strongest
+        ]
+        midpoint = len(text) / 2
+        return min(
+            strongest_candidates,
+            key=lambda candidate: abs(candidate[0] - midpoint),
+        )[0]
+    return candidates[-1][0]
 
 
 def _pause_for(

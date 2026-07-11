@@ -278,6 +278,7 @@ The manifest retains every stable source-derived identifier, character count, so
 The full-book review report contains per-chapter metrics, forced intra-sentence split contexts, and ordering, limit, or pause anomalies.
 Ordinary sentence boundaries and complete chunk text remain only in the manifest and focused chapter reports.
 A sentence longer than `max_characters` splits first at punctuation and then at whitespace.
+Forced splits avoid extra or very short chunks and prefer semicolons and colons over commas.
 A single word longer than the configured limit fails with an actionable error rather than violating the limit.
 
 Generate the complete chunk and pause report for the representative chapter:

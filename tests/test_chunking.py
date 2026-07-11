@@ -100,6 +100,30 @@ def test_limit_split_honors_exact_boundary_and_rejects_overlong_word() -> None:
         split_to_limit("lunghissima", 5)
 
 
+def test_limit_split_prefers_stronger_punctuation_without_adding_chunks() -> None:
+    sentence = (
+        "Per ora non serve sapere quale prodotto comprare, né calcolare rendimenti "
+        "complessi: serve capire perché alcune decisioni molto comuni, come lasciare "
+        "tutti i risparmi sul conto corrente o sottoscrivere il primo prodotto proposto "
+        "in banca, hanno conseguenze che nel corso di una vita si misurano in decine di "
+        "migliaia di euro."
+    )
+
+    assert split_to_limit(sentence, 300) == (
+        "Per ora non serve sapere quale prodotto comprare, né calcolare rendimenti complessi:",
+        "serve capire perché alcune decisioni molto comuni, come lasciare tutti i risparmi "
+        "sul conto corrente o sottoscrivere il primo prodotto proposto in banca, hanno "
+        "conseguenze che nel corso di una vita si misurano in decine di migliaia di euro.",
+    )
+    assert split_to_limit(
+        "Introduzione: parole parole parole, continuazione breve.",
+        40,
+    ) == (
+        "Introduzione: parole parole parole,",
+        "continuazione breve.",
+    )
+
+
 def test_chunk_manifest_preserves_text_order_ids_and_pause_semantics() -> None:
     document, normalized = _documents()
 
