@@ -111,14 +111,23 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 
 ## Model and runtime strategy for a 16 GB Apple Silicon Mac
 
-- Quality candidate: Chatterbox Multilingual V3 through the official PyTorch MPS implementation because no maintained V3 MLX port exists.
+- The qualified default is Chatterbox Multilingual V3 through the official PyTorch MPS implementation because no maintained V3 MLX port exists.
+- Pin the Chatterbox code to `65b18437192794391a0308a8f705b1e33e633948` and `ResembleAI/chatterbox` weights to `5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18`.
+- Use the pinned model's built-in `conds.pt` voice without external voice cloning or reference audio.
+- Generate native mono audio at 24 kHz with seed `20260711`, speed `1.0`, temperature `0.8`, exaggeration `0.5`, CFG weight `0.5`, repetition penalty `1.2`, minimum probability `0.05`, top probability `1.0`, and multilingual T3 model `v3`.
+- Reject Chatterbox requests above the qualified operational limit of 300 characters and never silently resample its output.
 - Chatterbox requires macOS 15.1 or newer because earlier MPS frameworks reject the long-output convolution exercised by the qualification corpus.
-- It supports Italian and is MIT-licensed, but it may use roughly 14–16 GB, so a 16 GB Mac is borderline and may swap.
-- Keep Chatterbox as the first quality trial, not a hard dependency.
-- Lightweight baseline/fallback: Kokoro-82M through MLX, with Apache-2.0 weights. It is fast and small, but Italian voices have reported English-like G2P/prosody issues; do not select it solely from English demos.
-- Before committing, run a fixed 20–30 excerpt bake-off containing Italian prose, percentages, ratios, currencies, abbreviations, English finance terms, long sentences, and dialogue. Record ASR metrics, generation speed, memory pressure, and blind listening preference. Store this corpus as a regression fixture.
+- The Tahoe 26.5.2 qualification generated 139 seconds of Chatterbox audio in 873 seconds with 4.14 GB process peak RSS and no failed excerpts.
+- Human listening strongly preferred Chatterbox while noting a slight English-native accent on some Italian words.
+- Record demonstrated Chatterbox pronunciation corrections in a separate model-specific lexicon overlay instead of changing model-independent spoken text.
+- The qualified fallback is Kokoro-82M through MLX using `mlx-community/Kokoro-82M-bf16` revision `a71e4d38b236d968966a2002c4c895dbd12b1c3c` and Italian voice `if_sara`.
+- Generate Kokoro audio at native mono 24 kHz with seed `20260711`, speed `1.0`, and no temperature parameter.
+- Kokoro has no qualified character-count rule because its effective limit is phoneme-token based, so it receives the same pre-chunked text and surfaces backend limit failures without silent resampling.
+- Human review accepts Kokoro's lower-quality but intelligible output for fallback use.
+- Fallback selection is a documented manual contingency until automatic runtime fallback is explicitly implemented.
+- Both selected model-weight licenses are permissive, and external voice cloning remains restricted to voices the user owns or has explicit permission to reproduce.
 - Verification on macOS should use MLX-Whisper or whisper.cpp, not `faster-whisper`: CTranslate2 has no MPS path and runs CPU-only on Apple Silicon. Start with `large-v3-turbo`; make the exact ASR model configurable.
-- Preserve permissive licensing throughout so the same pipeline can later produce a commercial audiobook. For voice cloning, use only a voice the user owns or has explicit permission to reproduce.
+- Treat ASR metrics as supporting evidence rather than the model-selection oracle.
 
 ## Normalization and verification policy
 

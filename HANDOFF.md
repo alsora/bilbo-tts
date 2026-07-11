@@ -2,13 +2,13 @@
 
 ## Current state
 
-- The active branch is `milestone/c4-tts-qualification` at user commit `5e225c3` before the current follow-up.
-- Checkpoint C3 is approved after human review of chapter 2 extraction, normalization, and chunking.
+- The active branch is `milestone/c4-tts-qualification` at commit `1bebb93` before the final selection documentation.
+- Checkpoints C3 and C4 are approved.
 - The private target source and generated reports remain only under ignored `work/c2-target-project/`.
-- Milestone 4 commits are `8f24bb2`, `4f9340d`, `4cee05d`, and `027e68b`.
+- Milestone 4 commits before the final selection are `8f24bb2`, `4f9340d`, `4cee05d`, `027e68b`, and `1bebb93`.
 - Generated model caches, WAV files, qualification results, and ASR evidence remain under ignored `work/`.
 - The user upgraded the target Mac from macOS 14.5 to Tahoe 26.5.2.
-- Both candidates now complete the fixed corpus, and the deterministic blind-listening package is ready.
+- Chatterbox Multilingual V3 is the approved default, and Kokoro-82M is the approved fallback.
 
 ## Completed work
 
@@ -20,6 +20,7 @@
 - Added minimal separate-process MLX-Whisper scoring with deterministic comparison normalization and weighted WER and CER evidence.
 - Added `qualify-tts`, `prepare-tts-listening`, and `score-tts-asr` commands.
 - Added exact isolated model dependencies and regenerated `pixi.lock`.
+- Recorded the exact default and fallback revisions, voices, settings, runtime limits, licensing, and platform requirement in `design.md`.
 
 ## Verification
 
@@ -34,18 +35,17 @@
 - MLX-Whisper scores all 24 Chatterbox excerpts with weighted WER 0.167116 and CER 0.182331.
 - MLX-Whisper scores all 24 Kokoro excerpts with weighted WER 0.161725 and CER 0.182331.
 - The listening package contains 48 opaque clips under `work/tts-qualification/listening/` with seed `20260711`.
-- The user reports that unblinded listening strongly favors Chatterbox, while formal blind ratings remain pending.
+- The user waived blind scoring because the voices are immediately identifiable, strongly preferred Chatterbox, noted a mild English-native accent on some Italian words, and accepted Kokoro as an intelligible fallback.
 
 ## Durable references
 
 - Architecture and stable policy are owned by [`design.md`](design.md).
 - Milestones and checkpoint criteria are owned by [`implementation.md`](implementation.md).
-- The next-session C4 execution plan is [`milestone-4-plan.md`](milestone-4-plan.md).
+- The completed C4 execution plan is [`milestone-4-plan.md`](milestone-4-plan.md).
 - Repository working conventions are owned by [`AGENTS.md`](AGENTS.md).
 
 ## Next action
 
-- Complete `work/tts-qualification/listening/rating-sheet.md` without opening `mapping.json`.
-- Reveal the mapping only after all ratings are recorded.
-- Select the default and fallback from listening quality, stability, memory, and speed, then record the final decision in `design.md`.
-- Checkpoint C4 remains open only for the human blind-listening decision and final selection documentation.
+- Review and merge the C4 branch when ready.
+- Start Milestone 5 from the accepted C4 implementation and build resumable synthesis around the qualified Chatterbox default.
+- Keep Kokoro fallback selection manual until automatic runtime fallback is explicitly implemented.

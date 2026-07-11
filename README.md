@@ -306,6 +306,11 @@ Committed text-stage fixtures and reviewed goldens run without model downloads:
 
 The fixed reviewed Italian corpus and exact candidate configurations live under `config/qualification/`.
 The default development environment can run the deterministic fake candidate without importing or downloading a model.
+The qualified default is Chatterbox Multilingual V3 with its pinned built-in voice.
+The qualified fallback is Kokoro-82M with Italian voice `if_sara`.
+Human review strongly preferred Chatterbox and accepted Kokoro as an intelligible lower-quality fallback.
+Chatterbox retains a mild English-native accent on some Italian words, which should be addressed only through reviewed model-specific pronunciation overrides.
+The exact revisions, settings, runtime limits, and selection policy are recorded in [`design.md`](design.md#model-and-runtime-strategy-for-a-16-gb-apple-silicon-mac).
 
 Run the fake qualification path:
 
