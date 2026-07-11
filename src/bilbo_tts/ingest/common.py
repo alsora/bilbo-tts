@@ -39,6 +39,7 @@ class MappedContent:
     blocks: tuple[MappedBlock, ...]
     exclusions: tuple[ExclusionRecord, ...] = ()
     warnings: tuple[str, ...] = ()
+    chapter_heading_level: int = 1
 
 
 def map_pandoc_ast(ast: dict[str, Any], source: SourceLocation) -> MappedContent:
@@ -68,12 +69,19 @@ def assemble_document(
         *warnings,
         *(warning for content in contents for warning in content.warnings),
     ]
+    chapter_levels = {content.chapter_heading_level for content in contents}
+    if len(chapter_levels) != 1:
+        raise IngestionError("source adapters disagree about the chapter heading level")
+    chapter_heading_level = chapter_levels.pop()
+    if chapter_heading_level < 1:
+        raise IngestionError("chapter heading level must be positive")
     if not mapped_blocks:
         raise IngestionError("source extraction produced no narratable text")
 
     chapters: list[ChapterDocument] = []
     current_title = fallback_title
     current_blocks: list[DocumentBlock] = []
+    pending_headings: list[MappedBlock] = []
     block_number = 0
     excluding_references = False
     saw_chapter_heading = False
@@ -91,11 +99,38 @@ def assemble_document(
         )
         current_blocks.clear()
 
+    def append_block(mapped: MappedBlock) -> None:
+        nonlocal block_number
+        block_number += 1
+        current_blocks.append(
+            DocumentBlock(
+                block_id=f"block-{block_number:06d}",
+                kind=mapped.kind,
+                display_text=mapped.text,
+                source=mapped.source,
+                warnings=mapped.warnings,
+            )
+        )
+
     for mapped in mapped_blocks:
-        is_chapter_heading = mapped.kind is BlockKind.HEADING and mapped.heading_level == 1
+        is_higher_heading = (
+            mapped.kind is BlockKind.HEADING
+            and mapped.heading_level is not None
+            and mapped.heading_level < chapter_heading_level
+        )
+        if is_higher_heading:
+            finish_chapter("Front matter" if not saw_chapter_heading else current_title)
+            pending_headings.append(mapped)
+            excluding_references = False
+            continue
+
+        is_chapter_heading = (
+            mapped.kind is BlockKind.HEADING and mapped.heading_level == chapter_heading_level
+        )
         if is_chapter_heading:
             if _is_references_heading(mapped.text):
                 finish_chapter("Front matter" if not saw_chapter_heading else current_title)
+                pending_headings.clear()
                 exclusions.append(
                     ExclusionRecord(
                         reason_code="reference-section",
@@ -110,21 +145,19 @@ def assemble_document(
             current_title = mapped.text
             saw_chapter_heading = True
             excluding_references = False
+            for pending in pending_headings:
+                append_block(pending)
+            pending_headings.clear()
 
         if excluding_references:
             continue
 
-        block_number += 1
-        current_blocks.append(
-            DocumentBlock(
-                block_id=f"block-{block_number:06d}",
-                kind=mapped.kind,
-                display_text=mapped.text,
-                source=mapped.source,
-                warnings=mapped.warnings,
-            )
-        )
+        append_block(mapped)
 
+    for pending in pending_headings:
+        append_block(pending)
+    if pending_headings and not saw_chapter_heading:
+        current_title = pending_headings[-1].text
     finish_chapter(current_title)
     if not chapters:
         raise IngestionError("source extraction produced no chapters")
@@ -298,7 +331,7 @@ def _map_paragraph(
     text_parts: list[str] = []
     footnotes: list[MappedBlock] = []
     warnings: list[str] = []
-    image_only = len(content) == 1 and _tag(content[0]) == "Image"
+    image_only = _contains_only_image(content)
     for inline in content:
         if _tag(inline) == "Note":
             note_content = inline.get("c") if isinstance(inline, dict) else None
@@ -317,7 +350,11 @@ def _map_paragraph(
     text = _clean_text("".join(text_parts))
     blocks: list[MappedBlock] = []
     exclusions: list[ExclusionRecord] = []
-    if text:
+    if image_only and text.casefold() in {"image", "figura"}:
+        exclusions.append(
+            _exclusion("non-narratable-image", "Image without a caption excluded", source)
+        )
+    elif text:
         blocks.append(
             MappedBlock(
                 kind=BlockKind.CAPTION if image_only else BlockKind.PARAGRAPH,
@@ -397,12 +434,29 @@ def _math_kind(value: Any) -> str | None:
 
 
 def _clean_text(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
+    return re.sub(r"(?<=[€$£])(?=[^\W\d_])", " ", text)
 
 
 def _is_references_heading(text: str) -> bool:
     normalized = re.sub(r"[^a-zà-ÿ]+", " ", text.casefold()).strip()
     return normalized in {"bibliografia", "bibliography", "references", "riferimenti"}
+
+
+def _contains_only_image(value: Any) -> bool:
+    if isinstance(value, list):
+        return len(value) == 1 and _contains_only_image(value[0])
+    if not isinstance(value, dict):
+        return False
+    tag = value.get("t")
+    content = value.get("c")
+    if tag == "Image":
+        return True
+    if tag == "Span" and isinstance(content, list) and len(content) == 2:
+        return _contains_only_image(content[1])
+    if tag in {"Emph", "Strong"}:
+        return _contains_only_image(content)
+    return False
 
 
 def _exclusion(reason_code: str, description: str, source: SourceLocation) -> ExclusionRecord:

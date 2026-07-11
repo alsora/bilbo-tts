@@ -225,8 +225,13 @@ def _validate_latex_includes(path: Path, data: bytes, source_root: Path) -> None
     except UnicodeDecodeError as error:
         raise IngestionError(f"LaTeX source must be UTF-8: {path}") from error
     source = re.sub(r"(?<!\\)%.*", "", source)
+    includes: list[str] = []
     for match in re.finditer(r"\\(?:input|include)\s*\{([^{}]+)\}", source):
-        include_name = match.group(1).strip()
+        includes.append(match.group(1).strip())
+    for match in re.finditer(r"\\import\s*\{([^{}]+)\}\s*\{([^{}]+)\}", source):
+        includes.append(str(Path(match.group(1).strip()) / match.group(2).strip()))
+
+    for include_name in includes:
         include = path.parent / include_name
         if not include.suffix:
             include = include.with_suffix(".tex")

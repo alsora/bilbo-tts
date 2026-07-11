@@ -98,8 +98,9 @@ It writes the canonical artifact to `work/my-book/manifests/book-document.json`.
 It writes the chapter text, source references, warnings, and exclusions to `work/my-book/reports/extraction.md`.
 Unchanged input produces byte-identical output files and checksums.
 
-LaTeX is parsed through the locked Pandoc executable and ordinary `\input` or `\include` files below the source directory contribute to the source checksum.
+LaTeX is parsed through the locked Pandoc executable and ordinary `\input`, `\include`, or static `\import` files below the source directory contribute to the source checksum.
 Pandoc does not expose reliable LaTeX line positions in its JSON AST, so reports retain source paths without fabricated line numbers.
+Inline citations are recorded and omitted from narration, while appendix references remain readable without unresolved numbering.
 Born-digital PDFs are extracted page by page through PyMuPDF4LLM with OCR disabled.
 An image-only or scanned PDF page exits with status 1, writes a failed extraction report, and does not write a partial canonical document.
 Resolve scanned pages outside this milestone before rerunning ingestion.

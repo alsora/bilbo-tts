@@ -41,6 +41,27 @@ def test_pandoc_ast_maps_supported_structures_and_explicit_omissions() -> None:
                 "c": [{"t": "Math", "c": [{"t": "DisplayMath"}, "x^2"]}],
             },
             {"t": "Figure", "c": [{"t": "Para", "c": _inlines("Una didascalia")}]},
+            {
+                "t": "Para",
+                "c": [
+                    {
+                        "t": "Span",
+                        "c": [
+                            ["", [], []],
+                            [
+                                {
+                                    "t": "Image",
+                                    "c": [
+                                        ["", [], []],
+                                        [{"t": "Str", "c": "image"}],
+                                        ["cover.png", ""],
+                                    ],
+                                }
+                            ],
+                        ],
+                    }
+                ],
+            },
             {"t": "RawBlock", "c": ["latex", "\\unknown"]},
         ]
     }
@@ -59,7 +80,10 @@ def test_pandoc_ast_maps_supported_structures_and_explicit_omissions() -> None:
     ]
     assert mapped.blocks[1].text == "Testo con nota."
     assert mapped.blocks[5].warnings == ("table-linearized: verify row and column reading order",)
-    assert mapped.exclusions[0].reason_code == "unsupported-pandoc-block"
+    assert [item.reason_code for item in mapped.exclusions] == [
+        "non-narratable-image",
+        "unsupported-pandoc-block",
+    ]
 
 
 def test_document_assembly_preserves_front_matter_chapters_and_excludes_references() -> None:
@@ -119,6 +143,29 @@ def test_document_without_chapter_heading_uses_configured_title() -> None:
     )
 
     assert document.chapters[0].title == "Titolo configurato"
+
+
+def test_currency_macro_output_keeps_word_boundaries() -> None:
+    mapped = map_pandoc_ast(
+        {
+            "blocks": [
+                {
+                    "t": "Para",
+                    "c": [
+                        {"t": "Str", "c": "200"},
+                        {"t": "Space"},
+                        {"t": "Str", "c": "€"},
+                        {"t": "Str", "c": "al"},
+                        {"t": "Space"},
+                        {"t": "Str", "c": "mese"},
+                    ],
+                }
+            ]
+        },
+        SOURCE,
+    )
+
+    assert mapped.blocks[0].text == "200 € al mese"
 
 
 @pytest.mark.parametrize(
