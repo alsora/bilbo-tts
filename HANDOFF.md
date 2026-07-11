@@ -2,31 +2,35 @@
 
 ## Current state
 
-- The active branch is `main` at `374f81a` and is synchronized with `origin/main`.
+- The active branch is `milestone/c4-tts-qualification`; its implementation head before this handoff is `4cee05d`.
 - Checkpoint C3 is approved after human review of chapter 2 extraction, normalization, and chunking.
 - The private target source and generated reports remain only under ignored `work/c2-target-project/`.
-- The intentional working-tree changes are this handoff update and the Milestone 4 execution plan.
+- Milestone 4 implementation commits are `8f24bb2`, `4f9340d`, and `4cee05d`.
+- Generated model caches, WAV files, qualification results, and ASR evidence remain under ignored `work/`.
+- The branch is not pushed because the required complete Chatterbox corpus check failed.
 
 ## Completed work
 
-- Milestone 3 provides deterministic Italian normalization, reviewed lexicons, bounded equation speech, auditable transformations, sentence-aware chunking, stable identifiers, and explicit pause metadata.
-- Full-book reports are compact summaries, while `review-extraction` and `review-chunking` generate complete chapter-scoped reports.
-- Typographic apostrophes and quotation marks remain in `spoken_text`; equivalent variants are deferred to ASR comparison or qualified engine-specific handling.
-- Decimal fractions use grouped Italian pronunciation with significant leading zeros preserved.
-- Forced two-part sentence splits avoid short fragments and prefer semicolons and colons over commas without increasing the chunk count.
-- Relevant report and text fixes are commits `6ad4372`, `b11cd30`, `9a4857b`, `68e3fb7`, and `374f81a`.
+- Added strict TTS contracts, shared validation, a dependency-free deterministic fake engine, and an explicit lazy factory.
+- Added the reviewed 24-excerpt Italian qualification corpus and pinned Chatterbox, Kokoro, and ASR candidate configurations.
+- Added independent qualification WAV generation, canonical result contracts, compact reports, macOS peak RSS recording, and per-sample failure continuation.
+- Added deterministic blind-listening package generation with opaque WAV identifiers and a separate private mapping.
+- Added lazy immutable Chatterbox V3 PyTorch MPS and Kokoro MLX adapters with opt-in hardware tests.
+- Added minimal separate-process MLX-Whisper scoring with deterministic comparison normalization and weighted WER and CER evidence.
+- Added `qualify-tts`, `prepare-tts-listening`, and `score-tts-asr` commands.
+- Added exact isolated model dependencies and regenerated `pixi.lock`.
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, all 126 tests, and 93.53 percent coverage.
-- All 5 focused chunking tests pass with `pytest --no-cov`.
-- Fixture pipelines run `ingest → normalize → chunk`, match byte-exact artifacts, reports, and summaries, and remain byte-idempotent without model downloads.
-- Target chunking and focused chapter 2 and chapter 3 reviews were regenerated successfully.
-- Target extraction contains 16 chapters, 2,200 blocks, 108 warnings, and 3 exclusions.
-- Target normalization contains 2,200 blocks, 1,890 transformations, 145 lexicon applications, and 140 full-book warnings.
-- Target chunking contains 6,480 chunks, 335 forced intra-sentence splits, no invariant anomaly, and a maximum length of exactly 300 characters.
-- Focused `chapter-0002` extraction and chunking reports contain 35 source blocks and 133 chunks.
-- The user approved chapter 2 blocks `block-000005` through `block-000039` with no checkpoint warning remaining.
+- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, all 205 tests, 3 expected hardware skips, and 91.84 percent coverage.
+- Locked installation succeeds for the `chatterbox`, `kokoro`, and `asr` environments.
+- The Chatterbox hardware smoke test passes in 242.10 seconds.
+- The complete Chatterbox corpus is partial with 23 successes and one `long-01` MPS failure: `Output channels > 65536 not supported at the MPS device`.
+- The Chatterbox run records 900.47 seconds generation time, 124.96 seconds valid audio, and 4.93 GB process peak RSS.
+- The Kokoro hardware smoke test passes in 16.26 seconds.
+- Kokoro completes all 24 excerpts in 25.15 seconds for 161.40 seconds of audio with 963.92 MB process peak RSS.
+- The MLX-Whisper hardware smoke test passes in 69.18 seconds.
+- MLX-Whisper scores all 24 Kokoro excerpts with weighted WER 0.161725 and CER 0.182331.
 
 ## Durable references
 
@@ -37,5 +41,7 @@
 
 ## Next action
 
-- Review and execute [`milestone-4-plan.md`](milestone-4-plan.md) from synchronized `main`.
-- Resolve the remaining 140 full-book warnings before a full-book text qualification, although they do not occur in the C3 review chapter.
+- Decide whether the reproducible Chatterbox MPS long-input failure disqualifies the candidate or warrants a separately reviewed backend or input-limit change.
+- Do not shorten the fixed corpus or hide the failure without an explicit qualification decision.
+- A complete second candidate is required before generating the blind-listening package.
+- Checkpoint C4 remains open until both default and fallback complete the corpus, blind listening is approved, and the final selection is recorded in `design.md`.
