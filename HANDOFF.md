@@ -2,25 +2,26 @@
 
 ## Current state
 
-- Milestone 2 and checkpoint C2 are complete on `milestone/c2-source-ingestion`.
-- C2 implementation commits are `c925ca3`, `24f56a9`, `c46afe2`, and `b8c6d21`.
-- The private target source remains only under ignored `work/c2-target-project/`.
-- Local commit `df7c4fe` documents the source-ingestion workflow and has not been pushed.
-- Intentional working-tree changes apply the accepted production-code ponytail simplifications.
+- Milestone 3 implementation is on `milestone/c3-normalization-chunking`.
+- Implementation commits are `8a9644a` and `c0d758a`.
+- Automated C3 verification is complete, while checkpoint C3 awaits the user's report approval.
+- The private target source and generated reports remain only under ignored `work/c2-target-project/`.
 
 ## Completed work
 
-- Implemented the LaTeX and born-digital PDF policies in [`design.md`](design.md).
-- Added `bilbo ingest`, canonical artifacts, readable reports, and deterministic summaries documented in [`README.md`](README.md).
-- Added reviewed fixtures, byte-exact goldens, and reusable CLI integration coverage.
-- Verified the real target book and manually approved `Introduzione`.
+- Added deterministic Italian normalization, the reviewed built-in finance lexicon, checksum-pinned overlays, bounded equation speech, and transformation audit trails.
+- Added paragraph-first Italian sentence splitting, explicit character limits, stable source-derived chunk identifiers, and pause metadata.
+- Added `bilbo normalize` and `bilbo chunk` with atomic dependent artifacts, deterministic summaries, readable reports, and stale-input rejection.
+- Added reviewed byte-exact normalization and chunking goldens for both committed fixture books.
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, and all 79 tests.
-- Test coverage is 92.51 percent.
-- Real CLI integrations match byte-exact LaTeX and PDF golden artifacts and reports without model downloads.
-- Target ingestion produced 16 chapters and 2,200 blocks with no unresolved cross-reference.
+- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, all 113 tests, and 93.43 percent coverage.
+- Fixture pipelines run `ingest → normalize → chunk`, match byte-exact artifacts, reports, and summaries, and remain byte-idempotent without model downloads.
+- Target normalization processed 2,200 blocks with 3,276 transformations, 145 lexicon applications, and 140 full-book warnings.
+- Target chunking produced 6,480 chunks with no limit outlier and a maximum length of exactly 300 characters.
+- The prepared `Introduzione` review covers blocks `block-000005` through `block-000039` and has no warning.
+- The prepared chapter demonstrates Unicode cleanup, whitespace cleanup, currencies, percentages, structural references, paragraph mapping, continuation splits, and all pause categories.
 
 ## Durable references
 
@@ -30,6 +31,7 @@
 
 ## Next action
 
-- Review, commit, and push the intentional branch changes.
-- Merge `milestone/c2-source-ingestion` before starting C3.
-- Create `milestone/c3-normalization-chunking` from the updated `main`.
+- Review `work/c2-target-project/work/tts-investimento/reports/normalization.md` for `block-000005` through `block-000039`.
+- Review the same block range in `work/c2-target-project/work/tts-investimento/reports/chunking.md` and explicitly approve or reject checkpoint C3.
+- Resolve the remaining 140 full-book warnings before a full-book text qualification, although they do not occur in the C3 review chapter.
+- Merge `milestone/c3-normalization-chunking` only after the desired review and branch checks.

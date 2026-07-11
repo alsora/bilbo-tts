@@ -33,7 +33,7 @@ flowchart LR
     document --> normalize["Italian speech normalization"]
     lexicon["Versioned pronunciation YAML"] --> normalize
     normalize --> chunk["Sentence-aware chunking"]
-    chunk --> chunkManifest["Chunk manifest JSONL"]
+    chunk --> chunkManifest["Canonical chunk manifest"]
     chunkManifest --> tts["TTS adapter"]
     voice["Voice reference and model config"] --> tts
     tts --> wav["Content-addressed WAV chunks"]
@@ -87,6 +87,9 @@ Stable chapter and block identifiers derive from canonical source order rather t
 
 The ingest stage writes `work/<book-id>/manifests/book-document.json` and `work/<book-id>/reports/extraction.md` atomically.
 Its standard output is a deterministic `ingest-summary/v1` JSON object containing output checksums and review counts.
+The normalize stage writes `work/<book-id>/manifests/normalized-document.json` and `work/<book-id>/reports/normalization.md` atomically.
+The chunk stage writes `work/<book-id>/manifests/chunk-manifest.json` and `work/<book-id>/reports/chunking.md` atomically.
+Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summary/v1` JSON objects.
 
 ## Components and proposed layout
 
@@ -94,8 +97,8 @@ Its standard output is a deterministic `ingest-summary/v1` JSON object containin
 - [`src/bilbo_tts/models.py`](src/bilbo_tts/models.py): Pydantic definitions for all manifests and sidecars.
 - [`src/bilbo_tts/ingest/`](src/bilbo_tts/ingest/): Pandoc AST adapter for LaTeX; PyMuPDF4LLM adapter for born-digital PDF; reject or explicitly route scanned PDFs to OCR.
 - [`src/bilbo_tts/normalization/`](src/bilbo_tts/normalization/): deterministic, ordered Italian rules for Unicode cleanup, dehyphenation, percentages, decimals, ratios, currencies, ordinals, symbols, abbreviations, and lexicon replacement using `num2words(lang="it")`.
-- [`config/lexicons/finance-it.yaml`](config/lexicons/finance-it.yaml): versioned literal/regex entries with word boundaries, priority, optional case sensitivity, spoken replacement, and notes. Keep model-specific exceptions in a separate overlay.
-- [`src/bilbo_tts/chunking.py`](src/bilbo_tts/chunking.py): paragraph-first, sentence-aware splitting with configurable character/phoneme limits; preserve `break_before` rather than inserting silence into generated clips.
+- [`config/lexicons/finance-it.yaml`](config/lexicons/finance-it.yaml): the always-active versioned finance lexicon, with validated literal/regex entries, word boundaries, priority, optional case sensitivity, spoken replacement, and notes. Checksum-pinned book lexicons overlay it in listed order, and model-specific exceptions remain in separately named overlays.
+- [`src/bilbo_tts/chunking.py`](src/bilbo_tts/chunking.py): paragraph-first, sentence-aware splitting with an explicit character limit; preserve `break_before` rather than inserting silence into generated clips. Add model-specific phoneme limits only after C4 qualifies an engine and its counting behavior.
 - [`src/bilbo_tts/tts/`](src/bilbo_tts/tts/): a narrow engine interface plus Chatterbox and Kokoro adapters.
 - [`src/bilbo_tts/asr/`](src/bilbo_tts/asr/): a narrow transcription interface with an MLX-Whisper implementation.
 - [`src/bilbo_tts/verification.py`](src/bilbo_tts/verification.py): JiWER-based scoring, repetition/truncation and duration heuristics, bounded retries, and a machine-readable review queue.
@@ -114,6 +117,8 @@ Its standard output is a deterministic `ingest-summary/v1` JSON object containin
 ## Normalization and verification policy
 
 - Apply specific patterns before generic number expansion. For example, ratios, percentages, currency, dates, chapter references, and ranges must be disambiguated before calling `num2words`; `60/40` must not accidentally become a date or fraction.
+- The stable order is Unicode cleanup and dehyphenation; bounded equations; dates and structural references; ranges, percentages, currencies, ratios, and ordinals; abbreviations and symbols; reviewed lexicons; acronyms; decimals and generic integers; canonical whitespace.
+- Equation blocks support identifiers, equality, basic arithmetic, division, and ordinary LaTeX `\frac{...}{...}` deterministically. Unsupported notation remains visible and emits an `unresolved-math` warning rather than inferred speech.
 - Keep normalization deterministic and covered by golden tests. The pronunciation YAML is reviewed data, not generated inference. An optional local model may suggest entries later, but should never silently rewrite book text.
 - Compare ASR output to `spoken_text`, not the printed source. Normalize both sides consistently for casing, punctuation, apostrophes, and accent variants.
 - Use WER as one signal, not the sole oracle: combine WER/CER with missing-prefix/suffix detection, repeated n-grams, abnormal duration, and speaking rate. Calibrate thresholds against the bake-off corpus, then retry at most a configured number of times before manual review.

@@ -158,6 +158,9 @@ normalization:
   version: it-v1
   lexicons: []
 
+chunking:
+  max_characters: 300
+
 synthesis:
   engine: fixture
   model_revision: fixture-v1
@@ -176,12 +179,15 @@ input:
   path: source/book.pdf
 ```
 
-`schema_version`, `book_id`, `language`, `input`, `metadata`, `normalization`, and `synthesis` are required.
+`schema_version`, `book_id`, `language`, `input`, `metadata`, `normalization`, `chunking`, and `synthesis` are required.
 `language` is currently fixed to `it`.
 Every configured path is relative to the directory containing `book.yaml`; absolute paths, `..`, backslashes, and mismatched file extensions are rejected.
 Optional metadata fields are `subtitle`, `narrator`, and `cover_path`.
 `cover_path`, when present, must point to a relative JPEG or PNG file.
-The empty `lexicons` list means that no pronunciation lexicon is active yet.
+The reviewed built-in finance lexicon in `config/lexicons/finance-it.yaml` is always active for Italian normalization.
+Entries in `normalization.lexicons` are checksum-pinned, book-relative overlays applied in listed order.
+Keep engine-specific pronunciation overrides in separately named overlay files so model-independent speech text remains auditable.
+`chunking.max_characters` is an explicit positive character limit; engine-specific phoneme limits are deferred until model qualification.
 The `fixture` synthesis values satisfy the current configuration contract but do not select the production voice or model.
 Replace those values during model qualification before generating audio.
 The optional `assembly` section may be omitted to use the default pause and loudness settings.
@@ -222,7 +228,7 @@ Use this review checklist:
 5. For PDFs, check page references, multi-column reading order, and removal of repeated headers and footers.
 6. Read every warning and exclusion, especially those for tables, equations, images, citations, and unsupported material.
 7. Check tables row by row because they are flattened into spoken order and always require review.
-8. Check equations and inline mathematics because pronunciation is handled by a later milestone.
+8. Check equations and inline mathematics because normalization supports only a bounded deterministic vocabulary and warns on unsupported notation.
 9. Search for extraction artifacts such as raw LaTeX commands, unresolved references, joined words, broken punctuation, or image placeholders.
 10. Approve each omission explicitly or correct the source and rerun ingestion.
 
@@ -235,4 +241,37 @@ Run the ingestion integration checks without model downloads:
 
 ```shell
 .tools/bin/pixi run pytest tests/integration/test_ingest_cli.py -v --no-cov
+```
+
+## Italian normalization and chunking
+
+Run these stages only after approving the extraction report.
+
+```shell
+.tools/bin/pixi run bilbo normalize books/my-book/book.yaml
+.tools/bin/pixi run bilbo chunk books/my-book/book.yaml
+```
+
+For an isolated project root, pass the same `--project-root` option to both commands that was used for ingestion.
+`normalize` validates the stored book artifact and configured lexicon checksums.
+It writes `work/my-book/manifests/normalized-document.json` and `work/my-book/reports/normalization.md`.
+The report preserves display text beside spoken text and lists every transformation, lexicon application, unresolved symbol, and warning.
+Specific Italian patterns such as dates, ratios, percentages, currencies, ranges, section references, and bounded equations run before generic number expansion.
+Unsupported mathematical notation remains visible and produces an `unresolved-math` warning instead of guessed speech.
+
+`chunk` validates the normalized artifact and its upstream book artifact.
+It writes `work/my-book/manifests/chunk-manifest.json` and `work/my-book/reports/chunking.md`.
+Chunks retain stable source-derived identifiers, character counts, source mapping, and sentence, paragraph, or chapter pause metadata.
+A sentence longer than `max_characters` splits first at punctuation and then at whitespace.
+A single word longer than the configured limit fails with an actionable error rather than violating the limit.
+
+To complete checkpoint C3, review one full chapter in both reports.
+Resolve or explicitly accept every warning, sample every transformation category, confirm each source block maps to chunks in order, and inspect the smallest and largest chunks.
+Changing the source or lexicons makes downstream artifacts stale, so rerun `normalize` and then `chunk`.
+Unchanged reruns are byte-identical.
+
+Committed text-stage fixtures and reviewed goldens run without model downloads:
+
+```shell
+.tools/bin/pixi run pytest tests/integration/test_text_pipeline_cli.py -v --no-cov
 ```
