@@ -48,14 +48,15 @@ def create_tts_engine(
 
 def resolve_book_candidate(
     synthesis: SynthesisConfig,
-    project_root: Path,
+    _project_root: Path,
 ) -> TtsCandidateConfig:
     """Resolve and validate the pinned backend selected by one book."""
 
     if synthesis.engine == "fake":
         candidate = fake_candidate()
     elif synthesis.engine in {"chatterbox", "kokoro"}:
-        candidate = load_tts_candidate(candidate_path(project_root, synthesis.engine))
+        repository_root = Path(__file__).parents[3]
+        candidate = load_tts_candidate(candidate_path(repository_root, synthesis.engine))
     else:
         raise TtsError(
             f"unsupported synthesis engine {synthesis.engine!r}; "

@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 from bilbo_tts.artifacts import ArtifactStore
+from bilbo_tts.config import SynthesisConfig, VoiceConfig
 from bilbo_tts.models import (
     BreakKind,
     ChunkManifest,
@@ -18,6 +19,7 @@ from bilbo_tts.models import (
     NormalizedBlock,
     NormalizedDocument,
     PauseMetadata,
+    SynthesisSettings,
 )
 from bilbo_tts.qualification.candidates import TtsCandidateConfig
 from bilbo_tts.synthesis import (
@@ -33,6 +35,7 @@ from bilbo_tts.tts import (
     TtsRequest,
     TtsResult,
 )
+from bilbo_tts.tts.factory import resolve_book_candidate
 
 
 def make_project(
@@ -422,6 +425,26 @@ def test_wrong_model_revision_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="does not match the pinned"):
         synthesize_book(config, root, engine_factory=fake_factory)
+
+
+def test_book_candidate_resolution_is_independent_of_private_project_root(
+    tmp_path: Path,
+) -> None:
+    synthesis = SynthesisConfig(
+        engine="chatterbox",
+        model_revision="5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18",
+        voice=VoiceConfig(voice_id="builtin"),
+        settings=SynthesisSettings(
+            sample_rate_hz=24_000,
+            seed=20_260_711,
+            temperature=0.8,
+        ),
+    )
+
+    candidate = resolve_book_candidate(synthesis, tmp_path / "private-project")
+
+    assert candidate.engine == "chatterbox"
+    assert candidate.model.revision == synthesis.model_revision
 
 
 def test_report_is_compact_and_canonical(tmp_path: Path) -> None:
