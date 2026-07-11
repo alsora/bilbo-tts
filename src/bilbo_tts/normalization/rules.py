@@ -117,10 +117,6 @@ def _unicode_cleanup(text: str) -> str:
         .replace("\u00a0", " ")
         .replace("\u202f", " ")
         .replace("…", "...")
-        .replace("’", "'")
-        .replace("‘", "'")
-        .replace("“", '"')
-        .replace("”", '"')
     )
 
 

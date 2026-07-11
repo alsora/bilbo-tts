@@ -72,6 +72,28 @@ def test_normalization_is_idempotent_and_auditable(lexicons: LoadedLexicons) -> 
     ]
 
 
+def test_unicode_cleanup_preserves_typographic_punctuation(
+    lexicons: LoadedLexicons,
+) -> None:
+    source = "L’autore disse: “va bene”."
+
+    spoken, transformations, warnings = apply_rules(source, lexicons)
+
+    assert spoken == source
+    assert transformations == ()
+    assert warnings == ()
+
+
+def test_unicode_cleanup_retains_non_punctuation_canonicalization(
+    lexicons: LoadedLexicons,
+) -> None:
+    spoken, transformations, warnings = apply_rules("prima\u00a0dopo…", lexicons)
+
+    assert spoken == "prima dopo..."
+    assert [item.rule_id for item in transformations] == ["unicode-cleanup"]
+    assert warnings == ()
+
+
 def test_equation_rules_are_bounded_and_warn_for_unsupported_math(
     lexicons: LoadedLexicons,
 ) -> None:

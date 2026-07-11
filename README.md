@@ -266,6 +266,8 @@ For an isolated project root, pass the same `--project-root` option to both comm
 It writes `work/my-book/manifests/normalized-document.json` and `work/my-book/reports/normalization.md`.
 The manifest preserves the complete display text, spoken text, and transformation audit trail.
 The review report summarizes rules and warnings, omits unchanged warning-free blocks, and shows final spoken text with only the minimal span changed by each rule.
+Normalization preserves typographic apostrophes and quotation marks produced by rendered source text.
+Apostrophe and quote variants are canonicalized later for ASR comparison rather than rewritten in `spoken_text`.
 Specific Italian patterns such as dates, ratios, percentages, currencies, ranges, section references, and bounded equations run before generic number expansion.
 Unsupported mathematical notation remains visible and produces an `unresolved-math` warning instead of guessed speech.
 

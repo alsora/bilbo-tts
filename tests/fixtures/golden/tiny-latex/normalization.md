@@ -3,11 +3,11 @@
 - Normalization version: `it-v1`
 - Lexicon SHA-256: `141d3a64c7b1549d6a7be3afb2ab8200fa96309b012c238f4fdb128e43193ef5`
 - Blocks: 15
-- Changed blocks: 3
-- Transformations: 7
+- Changed blocks: 2
+- Transformations: 6
 - Lexicon applications: 0
 - Warnings: 1
-- Unchanged, warning-free blocks omitted: 12
+- Unchanged, warning-free blocks omitted: 13
 
 ## Warnings by reason
 
@@ -20,7 +20,6 @@
 - `equation-operators`: 1 application
 - `integer`: 1 application
 - `percentage`: 1 application
-- `unicode-cleanup`: 1 application
 - `whitespace`: 1 application
 
 ## Blocks requiring review
@@ -50,13 +49,3 @@ erre uguale a utile diviso capitale
 - `equation-operators`: `=` → `uguale a`
 - `equation-identifiers`: `r` → `erre`
 - `whitespace`: whitespace normalized
-
-### `block-000013`
-
-**Spoken text**
-
-Il capitolo incluso verifica l'ordine dei file.
-
-**Changes**
-
-- `unicode-cleanup`: `l’ordine` → `l'ordine`
