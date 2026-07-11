@@ -1,0 +1,13 @@
+.DS_Store
+.coverage
+.mypy_cache/
+.pixi/
+.pytest_cache/
+.ruff_cache/
+.tools/
+__pycache__/
+*.egg-info/
+*.py[cod]
+build/
+dist/
+work/

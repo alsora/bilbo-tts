@@ -1,0 +1,94 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bilbo-tts"
+version = "0.1.0"
+description = "A reproducible pipeline for generating Italian audiobooks"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = ["typer"]
+
+[project.scripts]
+bilbo = "bilbo_tts.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bilbo_tts"]
+
+[tool.pixi.workspace]
+name = "bilbo-tts"
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.feature.base.dependencies]
+python = "3.11.*"
+ffmpeg = "*"
+pandoc = "*"
+libsndfile = "*"
+
+[tool.pixi.feature.base.pypi-dependencies]
+bilbo-tts = { path = ".", editable = true }
+
+[tool.pixi.feature.base.activation.env]
+HF_HOME = "$PIXI_PROJECT_ROOT/work/cache/huggingface"
+XDG_CACHE_HOME = "$PIXI_PROJECT_ROOT/work/cache/xdg"
+BILBO_MODEL_CACHE = "$PIXI_PROJECT_ROOT/work/cache/models"
+
+[tool.pixi.feature.base.tasks]
+bilbo = "bilbo"
+doctor = "bilbo doctor"
+
+[tool.pixi.feature.dev.pypi-dependencies]
+mypy = "*"
+pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+
+[tool.pixi.feature.dev.tasks]
+format = "ruff format ."
+format-check = "ruff format --check ."
+lint = "ruff check ."
+typecheck = "mypy src tests"
+test = "pytest"
+check = { depends-on = ["format-check", "lint", "typecheck", "test"] }
+
+[tool.pixi.feature.chatterbox.activation.env]
+BILBO_TTS_BACKEND = "chatterbox"
+
+[tool.pixi.feature.kokoro.activation.env]
+BILBO_TTS_BACKEND = "kokoro"
+
+[tool.pixi.feature.asr.activation.env]
+BILBO_ASR_BACKEND = "mlx-whisper"
+
+[tool.pixi.environments]
+default = ["base", "dev"]
+base = ["base"]
+dev = ["base", "dev"]
+chatterbox = ["base", "chatterbox"]
+kokoro = ["base", "kokoro"]
+asr = ["base", "asr"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "-ra",
+    "--strict-config",
+    "--strict-markers",
+    "--cov=bilbo_tts",
+    "--cov-report=term-missing",
+    "--cov-fail-under=90",
+]
+testpaths = ["tests"]
