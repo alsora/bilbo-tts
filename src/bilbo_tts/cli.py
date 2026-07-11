@@ -25,6 +25,7 @@ from bilbo_tts.qualification import (
     QualificationError,
     prepare_listening_for_engines,
     qualify_tts,
+    score_tts_asr,
 )
 from bilbo_tts.qualification.audio import AudioValidationError
 from bilbo_tts.review_service import (
@@ -207,6 +208,28 @@ def prepare_tts_listening_command(
         _fail_stage("tts-listening-summary/v1", error)
 
     typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+
+
+@app.command("score-tts-asr")
+def score_tts_asr_command(
+    engine: EngineArgument,
+    project_root: ProjectRootOption = Path("."),
+) -> None:
+    """Score one completed TTS qualification in the separate ASR environment."""
+
+    try:
+        summary = score_tts_asr(engine, project_root)
+    except (
+        ArtifactError,
+        CandidateConfigurationError,
+        CorpusError,
+        QualificationError,
+    ) as error:
+        _fail_stage("asr-qualification-summary/v1", error)
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+    if summary.status != "completed":
+        raise typer.Exit(code=1)
 
 
 @app.command("review-extraction")

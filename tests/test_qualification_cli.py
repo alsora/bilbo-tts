@@ -7,6 +7,7 @@ import pytest
 from typer.testing import CliRunner
 
 from bilbo_tts import cli
+from bilbo_tts.qualification.asr import AsrQualificationSummary
 from bilbo_tts.qualification.listening import ListeningPackageSummary
 from bilbo_tts.qualification.results import QualificationError, TtsQualificationSummary
 
@@ -69,6 +70,61 @@ def test_qualify_tts_cli_prints_existing_json_failure_style(
     assert json.loads(result.stdout) == {
         "error": "candidate is unavailable",
         "schema_version": "tts-qualification-summary/v1",
+        "status": "failed",
+    }
+
+
+def asr_summary(
+    status: Literal["completed", "partial", "failed"] = "completed",
+) -> AsrQualificationSummary:
+    failure_count = 0 if status == "completed" else 24 if status == "failed" else 1
+    return AsrQualificationSummary(
+        status=status,
+        engine="kokoro",
+        source_tts_result_sha256="a" * 64,
+        sample_count=24,
+        completed_count=24 - failure_count,
+        failure_count=failure_count,
+        result_path="result.json",
+        result_sha256="b" * 64,
+        report_path="summary.md",
+        report_sha256="c" * 64,
+    )
+
+
+def test_score_tts_asr_cli_prints_canonical_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = asr_summary()
+    monkeypatch.setattr(cli, "score_tts_asr", lambda _engine, _root: summary)
+
+    result = runner.invoke(
+        cli.app,
+        ["score-tts-asr", "kokoro", "--project-root", "/project"],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+
+
+def test_score_tts_asr_cli_returns_nonzero_for_partial_and_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summary = asr_summary("partial")
+    monkeypatch.setattr(cli, "score_tts_asr", lambda _engine, _root: summary)
+    partial = runner.invoke(cli.app, ["score-tts-asr", "kokoro"])
+
+    assert partial.exit_code == 1
+    assert json.loads(partial.stdout)["status"] == "partial"
+
+    def fail(_engine: object, _root: object) -> None:
+        raise QualificationError("TTS result is incomplete")
+
+    monkeypatch.setattr(cli, "score_tts_asr", fail)
+    failed = runner.invoke(cli.app, ["score-tts-asr", "kokoro"])
+
+    assert failed.exit_code == 1
+    assert json.loads(failed.stdout) == {
+        "error": "TTS result is incomplete",
+        "schema_version": "asr-qualification-summary/v1",
         "status": "failed",
     }
 

@@ -1,5 +1,10 @@
 """TTS qualification corpus, runner, and blind-listening tools."""
 
+from bilbo_tts.qualification.asr import (
+    AsrQualificationResult,
+    AsrQualificationSummary,
+    score_tts_asr,
+)
 from bilbo_tts.qualification.candidates import (
     AsrCandidateConfig,
     CandidateConfigurationError,
@@ -28,6 +33,8 @@ from bilbo_tts.qualification.runner import qualify_tts, run_qualification
 
 __all__ = [
     "AsrCandidateConfig",
+    "AsrQualificationResult",
+    "AsrQualificationSummary",
     "CandidateConfigurationError",
     "CorpusCategory",
     "CorpusError",
@@ -45,4 +52,5 @@ __all__ = [
     "prepare_listening_package",
     "qualify_tts",
     "run_qualification",
+    "score_tts_asr",
 ]
