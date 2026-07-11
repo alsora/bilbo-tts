@@ -90,9 +90,29 @@ def test_chunk_book_writes_manifest_report_and_summary(tmp_path: Path) -> None:
     assert summary.largest_chunk_characters <= 30
     assert manifest.normalized_document_sha256 == store.reference(NORMALIZED_PATH).sha256
     assert [chunk.sequence for chunk in manifest.chunks] == list(range(len(manifest.chunks)))
-    assert "## Source-to-chunk mapping" in report
+    assert "## Split blocks" in report
     assert "`block-1`" in report
     assert "## Limit outliers\n\n- None." in report
+    assert "#### `block-1`" in report
+    assert "none (continuation), 0 ms" in report
+    assert "## Source-to-chunk mapping" not in report
+    assert "- Sequence:" not in report
+    assert "- Source block:" not in report
+
+
+def test_chunk_report_omits_unsplit_blocks(tmp_path: Path) -> None:
+    root, config, store = _project(tmp_path)
+    store.write(DOCUMENT_PATH, _document("Breve."))
+    normalize_book(config, root)
+
+    chunk_book(config, root)
+
+    report = store.resolve(CHUNK_REPORT_PATH).read_text(encoding="utf-8")
+    assert "- Source blocks: 1" in report
+    assert "- Split blocks: 0" in report
+    assert "- Unsplit blocks omitted: 1" in report
+    assert "## Split blocks\n\n- None." in report
+    assert "Breve." not in report
 
 
 def test_chunk_manifest_becomes_stale_after_renormalization(tmp_path: Path) -> None:

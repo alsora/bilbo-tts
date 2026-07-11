@@ -3,157 +3,73 @@
 - Normalization version: `it-v1`
 - Lexicon SHA-256: `141d3a64c7b1549d6a7be3afb2ab8200fa96309b012c238f4fdb128e43193ef5`
 - Blocks: 10
+- Changed blocks: 5
 - Transformations: 7
+- Lexicon applications: 0
 - Warnings: 1
+- Unchanged, warning-free blocks omitted: 5
 
-## Unresolved symbols and warnings
+## Warnings by reason
 
-- `block-000007`: table-linearized: verify row and column reading order
+- `table-linearized: verify row and column reading order`: 1 occurrence
 
-## Applied lexicon entries
+## Transformations by rule
 
-- None.
+- `acronym`: 3 applications
+- `integer`: 4 applications
 
-## Normalized blocks
+## Blocks requiring review
 
 ### `block-000001`
-
-**Display text**
-
-1 Fondamenti PDF
 
 **Spoken text**
 
 uno Fondamenti pi di effe
 
-**Transformations**
+**Changes**
 
-- `acronym`: `1 Fondamenti PDF` → `1 Fondamenti pi di effe`
-- `integer`: `1 Fondamenti pi di effe` → `uno Fondamenti pi di effe`
-
-### `block-000002`
-
-**Display text**
-
-Il primo paragrafo occupa la colonna sinistra e conserva l'ordine di lettura.
-
-**Spoken text**
-
-Il primo paragrafo occupa la colonna sinistra e conserva l'ordine di lettura.
-
-**Transformations**
-
-- None.
-
-### `block-000003`
-
-**Display text**
-
-La seconda colonna segue la prima senza mescolare le frasi.
-
-**Spoken text**
-
-La seconda colonna segue la prima senza mescolare le frasi.
-
-**Transformations**
-
-- None.
-
-### `block-000004`
-
-**Display text**
-
-Primo elemento
-
-**Spoken text**
-
-Primo elemento
-
-**Transformations**
-
-- None.
-
-### `block-000005`
-
-**Display text**
-
-Secondo elemento
-
-**Spoken text**
-
-Secondo elemento
-
-**Transformations**
-
-- None.
+- `acronym`: `PDF` → `pi di effe`
+- `integer`: `1` → `uno`
 
 ### `block-000006`
-
-**Display text**
-
-Una citazione PDF mantiene una posizione riconoscibile.
 
 **Spoken text**
 
 Una citazione pi di effe mantiene una posizione riconoscibile.
 
-**Transformations**
+**Changes**
 
-- `acronym`: `Una citazione PDF mantiene una posizione riconoscibile.` → `Una citazione pi di effe mantiene una posizione riconoscibile.`
+- `acronym`: `PDF` → `pi di effe`
 
 ### `block-000007`
 
-**Display text**
-
-Anno Rendimento 2024 4 per cento 2025 5 per cento
+- Warnings: `table-linearized: verify row and column reading order`
 
 **Spoken text**
 
 Anno Rendimento duemilaventiquattro quattro per cento duemilaventicinque cinque per cento
 
-**Transformations**
+**Changes**
 
-- `integer`: `Anno Rendimento 2024 4 per cento 2025 5 per cento` → `Anno Rendimento duemilaventiquattro quattro per cento duemilaventicinque cinque per cento`
+- `integer`: `2024 4` → `duemilaventiquattro quattro`; `2025 5` → `duemilaventicinque cinque`
 
 ### `block-000008`
-
-**Display text**
-
-2 Applicazioni PDF
 
 **Spoken text**
 
 due Applicazioni pi di effe
 
-**Transformations**
+**Changes**
 
-- `acronym`: `2 Applicazioni PDF` → `2 Applicazioni pi di effe`
-- `integer`: `2 Applicazioni pi di effe` → `due Applicazioni pi di effe`
-
-### `block-000009`
-
-**Display text**
-
-Il secondo capitolo verifica il cambio pagina e le sorgenti numerate.
-
-**Spoken text**
-
-Il secondo capitolo verifica il cambio pagina e le sorgenti numerate.
-
-**Transformations**
-
-- None.
+- `acronym`: `PDF` → `pi di effe`
+- `integer`: `2` → `due`
 
 ### `block-000010`
-
-**Display text**
-
-Figura 1: andamento del capitale.
 
 **Spoken text**
 
 Figura uno: andamento del capitale.
 
-**Transformations**
+**Changes**
 
-- `integer`: `Figura 1: andamento del capitale.` → `Figura uno: andamento del capitale.`
+- `integer`: `1` → `uno`

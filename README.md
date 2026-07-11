@@ -255,13 +255,15 @@ Run these stages only after approving the extraction report.
 For an isolated project root, pass the same `--project-root` option to both commands that was used for ingestion.
 `normalize` validates the stored book artifact and configured lexicon checksums.
 It writes `work/my-book/manifests/normalized-document.json` and `work/my-book/reports/normalization.md`.
-The report preserves display text beside spoken text and lists every transformation, lexicon application, unresolved symbol, and warning.
+The manifest preserves the complete display text, spoken text, and transformation audit trail.
+The review report summarizes rules and warnings, omits unchanged warning-free blocks, and shows final spoken text with only the minimal span changed by each rule.
 Specific Italian patterns such as dates, ratios, percentages, currencies, ranges, section references, and bounded equations run before generic number expansion.
 Unsupported mathematical notation remains visible and produces an `unresolved-math` warning instead of guessed speech.
 
 `chunk` validates the normalized artifact and its upstream book artifact.
 It writes `work/my-book/manifests/chunk-manifest.json` and `work/my-book/reports/chunking.md`.
-Chunks retain stable source-derived identifiers, character counts, source mapping, and sentence, paragraph, or chapter pause metadata.
+The manifest retains every stable source-derived identifier, character count, source mapping, and pause value.
+The review report groups split blocks by chapter and omits ordinary blocks that produce only one chunk.
 A sentence longer than `max_characters` splits first at punctuation and then at whitespace.
 A single word longer than the configured limit fails with an actionable error rather than violating the limit.
 

@@ -91,8 +91,26 @@ def test_normalize_book_writes_dependent_artifact_report_and_summary(tmp_path: P
     assert summary.transformation_count == 2
     assert summary.lexicon_application_count == 1
     assert summary.warning_count == 0
-    assert "## Applied lexicon entries" in report
-    assert "lexicon.finance-it.acronimo-etf" in report
+    assert "## Transformations by rule" in report
+    assert "`lexicon.finance-it.acronimo-etf`: 1 application" in report
+    assert "## Blocks requiring review" in report
+    assert "L'et effe rende il cinque per cento." in report
+    assert "- `percentage`: `5%` → `cinque per cento`" in report
+    assert "L'ETF rende il 5%." not in report
+    assert "## Applied lexicon entries" not in report
+
+
+def test_normalization_report_omits_unchanged_warning_free_blocks(tmp_path: Path) -> None:
+    root, config_path, store = _project(tmp_path)
+    store.write(DOCUMENT_PATH, _book_document("Testo invariato."))
+
+    normalize_book(config_path, root)
+
+    report = store.resolve(NORMALIZATION_REPORT_PATH).read_text(encoding="utf-8")
+    assert "- Changed blocks: 0" in report
+    assert "- Unchanged, warning-free blocks omitted: 1" in report
+    assert "## Blocks requiring review\n\n- None." in report
+    assert "Testo invariato." not in report
 
 
 def test_normalized_artifact_becomes_stale_when_document_changes(tmp_path: Path) -> None:

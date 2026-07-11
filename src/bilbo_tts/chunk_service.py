@@ -12,6 +12,7 @@ from bilbo_tts.ingest.service import DOCUMENT_PATH
 from bilbo_tts.models import (
     BookDocument,
     ChunkManifest,
+    ChunkRecord,
     ContractModel,
     NonEmptyText,
     NormalizedDocument,
@@ -79,17 +80,25 @@ def chunk_book(config_path: Path, project_root: Path) -> ChunkSummary:
 
 
 def render_chunk_report(manifest: ChunkManifest, max_characters: int) -> str:
-    """Render chunk sizes, pause metadata, and source-to-chunk mapping."""
+    """Render a compact human-review view of meaningful chunk boundaries."""
 
     lengths = sorted(len(chunk.spoken_text) for chunk in manifest.chunks)
-    mapping: dict[str, list[str]] = {}
+    chunks_by_block: dict[str, list[ChunkRecord]] = {}
     for chunk in manifest.chunks:
-        mapping.setdefault(chunk.paragraph_id, []).append(chunk.chunk_id)
+        chunks_by_block.setdefault(chunk.paragraph_id, []).append(chunk)
+    split_blocks = [chunks for chunks in chunks_by_block.values() if len(chunks) > 1]
+    split_blocks_by_chapter: dict[str, list[list[ChunkRecord]]] = {}
+    for chunks in split_blocks:
+        split_blocks_by_chapter.setdefault(chunks[0].chapter_id, []).append(chunks)
+    outliers = [chunk for chunk in manifest.chunks if len(chunk.spoken_text) > max_characters]
     lines = [
         f"# Chunking report: {manifest.book_id}",
         "",
         f"- Character limit: {max_characters}",
         f"- Chunks: {len(manifest.chunks)}",
+        f"- Source blocks: {len(chunks_by_block)}",
+        f"- Split blocks: {len(split_blocks)}",
+        f"- Unsplit blocks omitted: {len(chunks_by_block) - len(split_blocks)}",
         f"- Minimum characters: {min(lengths, default=0)}",
         f"- Median characters: {_percentile(lengths, 50)}",
         f"- 95th percentile characters: {_percentile(lengths, 95)}",
@@ -98,33 +107,39 @@ def render_chunk_report(manifest: ChunkManifest, max_characters: int) -> str:
         "## Limit outliers",
         "",
     ]
-    lines.append("- None.")
-    lines.extend(["", "## Source-to-chunk mapping", ""])
-    if mapping:
+    if outliers:
         lines.extend(
-            f"- `{block_id}` → {', '.join(f'`{chunk_id}`' for chunk_id in chunk_ids)}"
-            for block_id, chunk_ids in mapping.items()
+            f"- `{chunk.chunk_id}`: {len(chunk.spoken_text)} characters" for chunk in outliers
         )
     else:
         lines.append("- None.")
-    lines.extend(["", "## Chunks", ""])
-    for chunk in manifest.chunks:
-        lines.extend(
-            [
-                f"### `{chunk.chunk_id}`",
-                "",
-                f"- Sequence: {chunk.sequence}",
-                f"- Chapter: `{chunk.chapter_id}`",
-                f"- Source block: `{chunk.paragraph_id}`",
-                f"- Sentence: `{chunk.sentence_id}`",
-                f"- Characters: {len(chunk.spoken_text)}",
-                f"- Break before: `{chunk.pause.break_before.value}` "
-                f"({chunk.pause.duration_ms} ms)",
-                "",
-                chunk.spoken_text,
-                "",
-            ]
-        )
+    lines.extend(["", "## Split blocks", ""])
+    if not split_blocks_by_chapter:
+        lines.extend(["- None.", ""])
+    for chapter_id, chapter_blocks in split_blocks_by_chapter.items():
+        lines.extend([f"### `{chapter_id}`", ""])
+        for chunks in chapter_blocks:
+            sentence_count = len({chunk.sentence_id for chunk in chunks})
+            lines.extend(
+                [
+                    f"#### `{chunks[0].paragraph_id}` — {len(chunks)} chunks from "
+                    f"{sentence_count} sentence{'s' if sentence_count != 1 else ''}",
+                    "",
+                ]
+            )
+            for chunk in chunks:
+                break_kind = chunk.pause.break_before.value
+                if break_kind == "none":
+                    break_kind = "none (continuation)"
+                lines.extend(
+                    [
+                        f"- `{chunk.chunk_id}` — {len(chunk.spoken_text)} characters; "
+                        f"{break_kind}, {chunk.pause.duration_ms} ms",
+                        "",
+                        f"  {chunk.spoken_text}",
+                        "",
+                    ]
+                )
     return "\n".join(lines).rstrip() + "\n"
 
 
