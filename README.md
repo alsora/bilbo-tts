@@ -269,6 +269,7 @@ The review report summarizes rules and warnings, omits unchanged warning-free bl
 Normalization preserves typographic apostrophes and quotation marks produced by rendered source text.
 Apostrophe and quote variants are canonicalized later for ASR comparison rather than rewritten in `spoken_text`.
 Specific Italian patterns such as dates, ratios, percentages, currencies, ranges, section references, and bounded equations run before generic number expansion.
+Decimal fractional parts are pronounced as grouped numbers, so `0,25%` becomes `zero virgola venticinque per cento`.
 Unsupported mathematical notation remains visible and produces an `unresolved-math` warning instead of guessed speech.
 
 `chunk` validates the normalized artifact and its upstream book artifact.

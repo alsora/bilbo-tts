@@ -117,6 +117,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 ## Normalization and verification policy
 
 - Apply specific patterns before generic number expansion. For example, ratios, percentages, currency, dates, chapter references, and ranges must be disambiguated before calling `num2words`; `60/40` must not accidentally become a date or fraction.
+- Read a decimal fractional part as one grouped number while spelling significant leading zero positions individually; for example, `0,25` becomes `zero virgola venticinque` and `0,025` becomes `zero virgola zero venticinque`.
 - The stable order is Unicode cleanup and dehyphenation; bounded equations; dates and structural references; ranges, percentages, currencies, ratios, and ordinals; abbreviations and symbols; reviewed lexicons; acronyms; decimals and generic integers; canonical whitespace.
 - Preserve typographic apostrophes and quotation marks in `spoken_text` because they are valid rendered punctuation; canonicalize equivalent variants only during ASR comparison, or in an engine-specific adapter if C4 qualification demonstrates a compatibility need.
 - Equation blocks support identifiers, equality, basic arithmetic, division, and ordinary LaTeX `\frac{...}{...}` deterministically. Unsupported notation remains visible and emits an `unresolved-math` warning rather than inferred speech.

@@ -2,23 +2,23 @@
 
 ## Current state
 
-- The active branch is `main` at `b11cd30`, two commits ahead of `origin/main`.
+- The active branch is `main` at `9a4857b`, three commits ahead of `origin/main`.
 - Milestone 3 is merged, while checkpoint C3 still awaits the user's report approval.
 - The private target source and generated reports remain only under ignored `work/c2-target-project/`.
 - The compact normalization, extraction, chunking, and chapter-review report changes are committed.
-- Intentional uncommitted changes preserve typographic apostrophes and quotation marks during normalization.
+- Typographic punctuation preservation is committed.
+- Intentional uncommitted changes correct grouped decimal pronunciation.
 
 ## Uncommitted work
 
-- Unicode cleanup retains NFC normalization, soft-hyphen removal, non-breaking-space cleanup, and ellipsis expansion.
-- Unicode cleanup no longer converts typographic apostrophes or quotation marks to ASCII.
-- `design.md` assigns apostrophe and quote equivalence to ASR comparison or a qualified engine-specific adapter rather than global `spoken_text`.
-- README guidance, regression tests, reviewed goldens, and summary checksums reflect the punctuation policy.
+- Decimal fractional parts are read as grouped numbers, so `0,25%` becomes `zero virgola venticinque per cento`.
+- Significant leading zero positions remain explicit, so `0,025%` becomes `zero virgola zero venticinque per cento`.
+- README and design guidance and regression tests reflect the decimal policy.
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, all 123 tests, and 93.54 percent coverage.
-- All 19 focused normalization tests pass with `pytest --no-cov`.
+- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, all 125 tests, and 93.55 percent coverage.
+- All 21 focused normalization tests pass with `pytest --no-cov`.
 - Fixture pipelines run `ingest → normalize → chunk`, match byte-exact artifacts, reports, and summaries, and remain byte-idempotent without model downloads.
 - The target `normalize → chunk` pipeline and focused chunk review were regenerated successfully with preserved punctuation.
 - Target extraction contains 16 chapters, 2,200 blocks, 108 warnings, and 3 exclusions.
@@ -37,6 +37,6 @@
 - Review `work/c2-target-project/work/tts-investimento/reports/review/chapter-0002-extraction.md`.
 - Review `work/c2-target-project/work/tts-investimento/reports/normalization.md` changes for `block-000005` through `block-000039`.
 - Review `work/c2-target-project/work/tts-investimento/reports/review/chapter-0002-chunking.md` and explicitly approve or reject checkpoint C3.
-- Commit the punctuation-preservation change after review.
+- Commit the grouped-decimal pronunciation fix after review.
 - Resolve the remaining 140 full-book warnings before a full-book text qualification, although they do not occur in the C3 review chapter.
 - Resume the milestone 4 implementation plan after C3 approval.

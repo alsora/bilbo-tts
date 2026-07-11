@@ -313,9 +313,17 @@ def _number_words(value: int | Decimal) -> str:
         fractional = fractional.rstrip("0")
         sign = "meno " if integral.startswith("-") else ""
         absolute_integral = abs(int(integral))
-        digits = " ".join(_number_words(int(digit)) for digit in fractional)
-        return f"{sign}{_number_words(absolute_integral)} virgola {digits}"
+        return f"{sign}{_number_words(absolute_integral)} virgola {_fractional_words(fractional)}"
     return cast(str, num2words(value, lang="it"))
+
+
+def _fractional_words(fractional: str) -> str:
+    leading_zero_count = len(fractional) - len(fractional.lstrip("0"))
+    words = ["zero"] * leading_zero_count
+    remainder = fractional[leading_zero_count:]
+    if remainder:
+        words.append(_number_words(int(remainder)))
+    return " ".join(words)
 
 
 def _canonical_whitespace(text: str) -> str:
