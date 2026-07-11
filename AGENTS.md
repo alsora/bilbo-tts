@@ -3,6 +3,7 @@
 These guidelines apply to every change in this repository.
 
 References:
+ - [Current state of the project](HANDOFF.md)
  - [How to run](README.md)
  - [Project design](design.md)
  - [Implementation milestones](implementation.md)
