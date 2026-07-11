@@ -92,7 +92,6 @@ class ArtifactStore:
     ) -> ArtifactReference:
         """Atomically persist an artifact and return its stable reference."""
 
-        target = self.resolve(relative_path)
         self._validate_dependencies(dependencies)
         payload = artifact.model_dump(mode="json")
         envelope = ArtifactEnvelope(
@@ -102,12 +101,19 @@ class ArtifactStore:
             payload=payload,
         )
         data = canonical_json_bytes(envelope) + b"\n"
+        return self.write_bytes(relative_path, data)
+
+    def write_bytes(
+        self,
+        relative_path: str | PurePosixPath,
+        data: bytes,
+    ) -> ArtifactReference:
+        """Atomically persist arbitrary bytes below the workspace root."""
+
+        target = self.resolve(relative_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         self._atomic_replace(target, data)
-        return ArtifactReference(
-            path=self._relative_name(target),
-            sha256=sha256_bytes(data),
-        )
+        return ArtifactReference(path=self._relative_name(target), sha256=sha256_bytes(data))
 
     def read(
         self,

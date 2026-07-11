@@ -81,3 +81,33 @@ Derived data belongs under the ignored `work/<book-id>/` workspace.
 Persistent manifests use versioned Pydantic contracts and deterministic canonical JSON.
 Artifacts include payload checksums and exact upstream references, and downstream reads fail when stored data is corrupt, incompatible, missing, or stale.
 Synthesis cache keys include every audio-affecting input while excluding presentation-only metadata.
+
+## Source ingestion
+
+Place a configured source below its owning book directory, for example `books/my-book/source/main.tex`.
+The `book_id` in `book.yaml` must match the directory containing that configuration.
+
+Run source ingestion from the project root:
+
+```shell
+.tools/bin/pixi run bilbo ingest books/my-book/book.yaml
+```
+
+The command emits an `ingest-summary/v1` JSON object on standard output.
+It writes the canonical artifact to `work/my-book/manifests/book-document.json`.
+It writes the chapter text, source references, warnings, and exclusions to `work/my-book/reports/extraction.md`.
+Unchanged input produces byte-identical output files and checksums.
+
+LaTeX is parsed through the locked Pandoc executable and ordinary `\input` or `\include` files below the source directory contribute to the source checksum.
+Pandoc does not expose reliable LaTeX line positions in its JSON AST, so reports retain source paths without fabricated line numbers.
+Born-digital PDFs are extracted page by page through PyMuPDF4LLM with OCR disabled.
+An image-only or scanned PDF page exits with status 1, writes a failed extraction report, and does not write a partial canonical document.
+Resolve scanned pages outside this milestone before rerunning ingestion.
+
+Review `extraction.md` before downstream processing, paying particular attention to table order, equations, omissions, headers, footers, and adapter warnings.
+Committed C2 fixtures and their reviewed golden outputs live under `tests/fixtures/`.
+Run the ingestion integration checks without model downloads:
+
+```shell
+.tools/bin/pixi run pytest tests/integration/test_ingest_cli.py -v --no-cov
+```

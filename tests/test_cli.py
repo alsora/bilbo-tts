@@ -7,6 +7,8 @@ from typer.testing import CliRunner
 
 from bilbo_tts import cli
 from bilbo_tts.doctor import EnvironmentReport
+from bilbo_tts.ingest import IngestionError, IngestSummary
+from bilbo_tts.models import SourceFormat
 
 runner = CliRunner()
 
@@ -78,3 +80,36 @@ def test_root_command_shows_help() -> None:
 
     assert result.exit_code == 2
     assert "Build reproducible Italian audiobooks." in result.stdout
+
+
+def test_ingest_prints_machine_readable_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = IngestSummary(
+        status="completed",
+        book_id="book",
+        source_format=SourceFormat.LATEX,
+        source_sha256="a" * 64,
+        document_path="manifests/book-document.json",
+        document_sha256="b" * 64,
+        report_path="reports/extraction.md",
+        report_sha256="c" * 64,
+        chapter_count=1,
+        block_count=2,
+    )
+    monkeypatch.setattr(cli, "ingest_book", lambda _config, _root: summary)
+
+    result = runner.invoke(cli.app, ["ingest", "books/book/book.yaml"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+
+
+def test_ingest_prints_json_error_and_exits_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(_config: object, _root: object) -> None:
+        raise IngestionError("source is unusable")
+
+    monkeypatch.setattr(cli, "ingest_book", fail)
+
+    result = runner.invoke(cli.app, ["ingest", "books/book/book.yaml"])
+
+    assert result.exit_code == 1
+    assert json.loads(result.stdout)["error"] == "source is unusable"

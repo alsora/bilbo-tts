@@ -1,0 +1,27 @@
+schema_version: book-config/v1
+book_id: tiny-pdf
+language: it
+input:
+  format: pdf
+  path: source/book.pdf
+metadata:
+  title: Piccolo libro PDF
+  author: Ada Autrice
+normalization:
+  version: it-v1
+  lexicons: []
+synthesis:
+  engine: fixture
+  model_revision: fixture-v1
+  voice:
+    voice_id: narrator
+  settings:
+    sample_rate_hz: 24000
+    seed: 7
+assembly:
+  pauses:
+    sentence_ms: 250
+    paragraph_ms: 600
+    chapter_ms: 1500
+  loudness_lufs: -18
+  true_peak_db: -2

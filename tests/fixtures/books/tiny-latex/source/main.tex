@@ -1,0 +1,46 @@
+\documentclass{book}
+\begin{document}
+
+Questa prefazione precede il primo capitolo.
+
+\chapter{Fondamenti}
+
+Il primo paragrafo contiene una nota\footnote{Nota esplicativa per il lettore.}.
+
+\begin{itemize}
+\item Primo elemento.
+\item Secondo elemento.
+  \begin{itemize}
+  \item Elemento annidato.
+  \end{itemize}
+\end{itemize}
+
+\begin{quote}
+Una citazione conserva il proprio ruolo.
+\end{quote}
+
+\begin{table}
+\caption{Rendimenti annuali}
+\begin{tabular}{lr}
+Anno & Rendimento \\
+2025 & 5\% \\
+\end{tabular}
+\end{table}
+
+\[
+r = \frac{utile}{capitale}
+\]
+
+\begin{figure}
+\caption{Andamento del capitale}
+\end{figure}
+
+\input{chapter-two.tex}
+
+\chapter{Bibliografia}
+
+\begin{thebibliography}{1}
+\bibitem{fonte} Autore, \emph{Titolo}, 2025.
+\end{thebibliography}
+
+\end{document}

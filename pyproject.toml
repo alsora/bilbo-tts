@@ -29,6 +29,7 @@ libsndfile = "*"
 
 [tool.pixi.feature.base.pypi-dependencies]
 bilbo-tts = { path = ".", editable = true }
+pymupdf4llm = ">=1.28.0, <2"
 
 [tool.pixi.feature.base.activation.env]
 HF_HOME = "$PIXI_PROJECT_ROOT/work/cache/huggingface"

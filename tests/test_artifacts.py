@@ -177,3 +177,14 @@ def test_book_workspace_owns_expected_path(tmp_path: Path) -> None:
     assert workspace.root == tmp_path / "work" / "finance-book"
     with pytest.raises(ValueError):
         BookWorkspace(tmp_path, "../outside")
+
+
+def test_raw_report_bytes_are_written_atomically_and_deterministically(tmp_path: Path) -> None:
+    store = ArtifactStore(tmp_path)
+    data = b"# Report\n\nReviewed.\n"
+
+    first = store.write_bytes("reports/extraction.md", data)
+    second = store.write_bytes("reports/extraction.md", data)
+
+    assert first == second
+    assert store.resolve(first.path).read_bytes() == data

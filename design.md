@@ -64,6 +64,27 @@ A chunk cache key hashes the spoken text, normalization version, lexicon checksu
 Presentation metadata such as title, author, narrator, subtitle, and cover does not contribute to the synthesis cache key.
 Merely skipping an existing filename is unsafe after a lexicon or model change.
 
+## Source ingestion policy
+
+LaTeX ingestion runs the pinned Pandoc executable against the configured entry point and allows ordinary `\input` and `\include` files below the source directory.
+Its source checksum covers the entry point and every file below that source directory so changes to included material invalidate the canonical document.
+Pandoc's JSON AST does not retain LaTeX source line positions, so C2 records the normalized relative source path without inventing line ranges.
+
+Born-digital PDF ingestion uses PyMuPDF4LLM page chunks with OCR disabled and records 1-based page references.
+Repeated page header and footer regions are excluded by policy and surfaced in the extraction report.
+Image-only pages fail ingestion without writing a partial `BookDocument` because OCR remains deferred.
+Blank pages and non-narratable image regions are recorded as exclusions.
+
+Level-one headings start chapters, while lower-level headings remain ordered document blocks.
+Content before the first level-one heading becomes front matter, and a source without chapter headings uses the configured book title.
+Headings, paragraphs, list items, quotations, captions, and footnotes remain narratable blocks in source order.
+Tables are linearized with a review warning, and equations remain equation blocks with a warning until deterministic speech normalization is available.
+Bibliography and reference sections, unsupported raw blocks, and images without captions become explicit exclusion records.
+Stable chapter and block identifiers derive from canonical source order rather than mutable display text.
+
+The ingest stage writes `work/<book-id>/manifests/book-document.json` and `work/<book-id>/reports/extraction.md` atomically.
+Its standard output is a deterministic `ingest-summary/v1` JSON object containing output checksums and review counts.
+
 ## Components and proposed layout
 
 - [`src/bilbo_tts/cli.py`](src/bilbo_tts/cli.py): commands `ingest`, `normalize`, `chunk`, `synthesize`, `verify`, `assemble`, and an idempotent `run` command.
