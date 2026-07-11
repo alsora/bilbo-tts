@@ -19,8 +19,8 @@ from bilbo_tts.normalization import (
     LoadedLexicons,
     load_lexicons,
     normalize_document,
-    normalize_text,
 )
+from bilbo_tts.normalization.rules import apply_rules
 from bilbo_tts.serialization import sha256_bytes
 
 
@@ -51,7 +51,7 @@ def test_required_golden_normalization_cases(
     expected: str,
     lexicons: LoadedLexicons,
 ) -> None:
-    spoken, _, warnings = normalize_text(source, lexicons)
+    spoken, _, warnings = apply_rules(source, lexicons)
 
     assert spoken == expected
     assert warnings == ()
@@ -60,8 +60,8 @@ def test_required_golden_normalization_cases(
 def test_normalization_is_idempotent_and_auditable(lexicons: LoadedLexicons) -> None:
     source = "L'ETF rende il 5%."
 
-    first, transformations, _ = normalize_text(source, lexicons)
-    second, second_transformations, _ = normalize_text(first, lexicons)
+    first, transformations, _ = apply_rules(source, lexicons)
+    second, second_transformations, _ = apply_rules(first, lexicons)
 
     assert second == first
     assert transformations
@@ -75,12 +75,12 @@ def test_normalization_is_idempotent_and_auditable(lexicons: LoadedLexicons) -> 
 def test_equation_rules_are_bounded_and_warn_for_unsupported_math(
     lexicons: LoadedLexicons,
 ) -> None:
-    spoken, transformations, warnings = normalize_text(
+    spoken, transformations, warnings = apply_rules(
         r"r = \frac{utile}{capitale}",
         lexicons,
         equation=True,
     )
-    unsupported, _, unsupported_warnings = normalize_text(
+    unsupported, _, unsupported_warnings = apply_rules(
         r"x^2 = y",
         lexicons,
         equation=True,
@@ -155,7 +155,7 @@ def test_configured_overlay_precedes_builtin_at_equal_priority(tmp_path: Path) -
         (LexiconConfig(path="overlay.yaml", sha256=sha256_bytes(data)),),
     )
 
-    spoken, transformations, _ = normalize_text("ETF", loaded)
+    spoken, transformations, _ = apply_rules("ETF", loaded)
 
     assert spoken == "e ti effe"
     assert transformations[0].rule_id == "lexicon.model-overlay.etf"

@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
 
 from bilbo_tts import cli
 
-
-class FixtureRunner(Protocol):
-    def __call__(self, name: str, stage: str = "ingest") -> tuple[Any, Path]: ...
+FixtureRunner = Callable[[str, str], tuple[Any, Path]]
 
 
 @pytest.fixture
@@ -21,7 +20,7 @@ def run_book_fixture(tmp_path: Path) -> FixtureRunner:
     fixtures = Path(__file__).parents[1] / "fixtures" / "books"
     project_root = tmp_path / "project"
 
-    def run(name: str, stage: str = "ingest") -> tuple[Any, Path]:
+    def run(name: str, stage: str) -> tuple[Any, Path]:
         destination = project_root / "books" / name
         if not destination.exists():
             destination.parent.mkdir(parents=True, exist_ok=True)

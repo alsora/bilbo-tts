@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 import pytest
 
 from bilbo_tts.artifacts import ArtifactStore
 from bilbo_tts.models import BookDocument, SourceFormat
 
-
-class FixtureRunner(Protocol):
-    def __call__(self, name: str, stage: str = "ingest") -> tuple[Any, Path]: ...
+FixtureRunner = Callable[[str, str], tuple[Any, Path]]
 
 
 @pytest.mark.parametrize(
@@ -27,7 +26,7 @@ def test_ingest_cli_matches_reviewed_golden_outputs(
     source_format: SourceFormat,
 ) -> None:
     run = _fixture_runner(run_book_fixture)
-    result, project_root = run(fixture_name)
+    result, project_root = run(fixture_name, "ingest")
 
     assert result.exit_code == 0, result.output
     summary = json.loads(result.stdout)
@@ -58,7 +57,7 @@ def test_ingest_cli_matches_reviewed_golden_outputs(
 
 def test_ingest_cli_is_byte_idempotent(run_book_fixture: object) -> None:
     run = _fixture_runner(run_book_fixture)
-    first, project_root = run("tiny-latex")
+    first, project_root = run("tiny-latex", "ingest")
     assert first.exit_code == 0, first.output
     workspace = project_root / "work" / "tiny-latex"
     document_path = workspace / "manifests" / "book-document.json"
@@ -66,7 +65,7 @@ def test_ingest_cli_is_byte_idempotent(run_book_fixture: object) -> None:
     first_document = document_path.read_bytes()
     first_report = report_path.read_bytes()
 
-    second, _ = run("tiny-latex")
+    second, _ = run("tiny-latex", "ingest")
 
     assert second.exit_code == 0, second.output
     assert json.loads(second.stdout) == json.loads(first.stdout)
@@ -79,7 +78,7 @@ def test_ingest_cli_rejects_scanned_pdf_without_partial_document(
 ) -> None:
     run = _fixture_runner(run_book_fixture)
 
-    result, project_root = run("tiny-scanned")
+    result, project_root = run("tiny-scanned", "ingest")
 
     assert result.exit_code == 1
     summary = json.loads(result.stdout)

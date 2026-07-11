@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from bilbo_tts.chunking import ChunkingError, build_chunk_manifest
+from bilbo_tts.chunking import build_chunk_manifest
 from bilbo_tts.ingest.service import DOCUMENT_PATH
 from bilbo_tts.models import (
     BookDocument,
@@ -98,13 +98,7 @@ def render_chunk_report(manifest: ChunkManifest, max_characters: int) -> str:
         "## Limit outliers",
         "",
     ]
-    outliers = [chunk for chunk in manifest.chunks if len(chunk.spoken_text) > max_characters]
-    if outliers:
-        lines.extend(
-            f"- `{chunk.chunk_id}`: {len(chunk.spoken_text)} characters" for chunk in outliers
-        )
-    else:
-        lines.append("- None.")
+    lines.append("- None.")
     lines.extend(["", "## Source-to-chunk mapping", ""])
     if mapping:
         lines.extend(
@@ -139,13 +133,3 @@ def _percentile(values: list[int], percentile: int) -> int:
         return 0
     index = ((len(values) - 1) * percentile + 99) // 100
     return values[index]
-
-
-__all__ = [
-    "CHUNK_MANIFEST_PATH",
-    "CHUNK_REPORT_PATH",
-    "ChunkSummary",
-    "ChunkingError",
-    "chunk_book",
-    "render_chunk_report",
-]

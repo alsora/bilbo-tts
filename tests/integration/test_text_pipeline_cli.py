@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 import pytest
 
 from bilbo_tts.artifacts import ArtifactStore
 from bilbo_tts.models import ChunkManifest, NormalizedDocument
 
-
-class FixtureRunner(Protocol):
-    def __call__(self, name: str, stage: str = "ingest") -> tuple[Any, Path]: ...
+FixtureRunner = Callable[[str, str], tuple[Any, Path]]
 
 
 @pytest.mark.parametrize("fixture_name", ["tiny-latex", "tiny-pdf"])
@@ -20,7 +19,7 @@ def test_text_pipeline_matches_reviewed_golden_outputs(
     fixture_name: str,
 ) -> None:
     run = _fixture_runner(run_book_fixture)
-    ingest, project_root = run(fixture_name)
+    ingest, project_root = run(fixture_name, "ingest")
     normalized, _ = run(fixture_name, "normalize")
     chunked, _ = run(fixture_name, "chunk")
 
@@ -58,7 +57,7 @@ def test_text_pipeline_matches_reviewed_golden_outputs(
 
 def test_text_pipeline_is_byte_idempotent(run_book_fixture: object) -> None:
     run = _fixture_runner(run_book_fixture)
-    ingest, project_root = run("tiny-latex")
+    ingest, project_root = run("tiny-latex", "ingest")
     first_normalize, _ = run("tiny-latex", "normalize")
     first_chunk, _ = run("tiny-latex", "chunk")
     assert ingest.exit_code == first_normalize.exit_code == first_chunk.exit_code == 0
@@ -87,7 +86,7 @@ def test_text_stages_reject_missing_upstream_artifacts(run_book_fixture: object)
     assert missing_document.exit_code == 1
     assert "book-document.json" in json.loads(missing_document.stdout)["error"]
 
-    ingest, _ = run("tiny-latex")
+    ingest, _ = run("tiny-latex", "ingest")
     assert ingest.exit_code == 0
     missing_normalized, _ = run("tiny-latex", "chunk")
     assert missing_normalized.exit_code == 1

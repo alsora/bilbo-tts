@@ -17,8 +17,6 @@ class StageError(ValueError):
 class StageContext:
     """Resolved configuration and owned workspace for one book."""
 
-    project_root: Path
-    config_path: Path
     book_dir: Path
     config: BookConfig
     workspace: BookWorkspace
@@ -47,8 +45,6 @@ def load_stage_context(config_path: Path, project_root: Path) -> StageContext:
             f"book_id {config.book_id!r} must match configuration directory {book_dir.name!r}"
         )
     return StageContext(
-        project_root=root,
-        config_path=resolved,
         book_dir=book_dir,
         config=config,
         workspace=BookWorkspace(root, config.book_id),

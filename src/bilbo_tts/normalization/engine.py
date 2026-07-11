@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from bilbo_tts.models import (
-    AppliedTransformation,
     BlockKind,
     BookDocument,
     NormalizedBlock,
@@ -15,20 +14,6 @@ from bilbo_tts.normalization.rules import apply_rules
 
 class NormalizationError(ValueError):
     """Source text cannot be normalized without violating a contract."""
-
-
-def normalize_text(
-    text: str,
-    lexicons: LoadedLexicons,
-    *,
-    equation: bool = False,
-) -> tuple[str, tuple[AppliedTransformation, ...], tuple[str, ...]]:
-    """Normalize one string; primarily exposed for golden rule tests."""
-
-    spoken, transformations, warnings = apply_rules(text, lexicons, equation=equation)
-    if not spoken:
-        raise NormalizationError("normalization produced empty spoken text")
-    return spoken, transformations, warnings
 
 
 def normalize_document(

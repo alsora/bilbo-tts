@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Callable
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import cast
 
 from num2words import num2words  # type: ignore[import-untyped]
@@ -308,10 +308,7 @@ def _parse_number(token: str) -> Decimal:
         normalized = normalized.replace(".", "").replace(",", ".")
     elif re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", normalized):
         normalized = normalized.replace(".", "")
-    try:
-        return Decimal(normalized)
-    except InvalidOperation:
-        return Decimal(0)
+    return Decimal(normalized)
 
 
 def _number_words(value: int | Decimal) -> str:

@@ -16,7 +16,7 @@ from bilbo_tts.models import (
     Sha256,
 )
 from bilbo_tts.normalization.engine import NormalizationError, normalize_document
-from bilbo_tts.normalization.lexicon import LexiconError, load_lexicons
+from bilbo_tts.normalization.lexicon import load_lexicons
 from bilbo_tts.stages import load_stage_context
 
 NORMALIZED_PATH = "manifests/normalized-document.json"
@@ -154,14 +154,3 @@ def render_normalization_report(document: NormalizedDocument) -> str:
             lines.append("- None.")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
-
-
-__all__ = [
-    "LexiconError",
-    "NORMALIZATION_REPORT_PATH",
-    "NORMALIZED_PATH",
-    "NormalizationError",
-    "NormalizeSummary",
-    "normalize_book",
-    "render_normalization_report",
-]

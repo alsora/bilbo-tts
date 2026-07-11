@@ -1,6 +1,6 @@
 """Deterministic Italian spoken-text normalization."""
 
-from bilbo_tts.normalization.engine import NormalizationError, normalize_document, normalize_text
+from bilbo_tts.normalization.engine import NormalizationError, normalize_document
 from bilbo_tts.normalization.lexicon import (
     LexiconError,
     LoadedLexicons,
@@ -16,5 +16,4 @@ __all__ = [
     "load_lexicons",
     "normalize_book",
     "normalize_document",
-    "normalize_text",
 ]
