@@ -21,7 +21,7 @@ from bilbo_tts.qualification.corpus import (
     default_corpus_path,
     load_corpus,
 )
-from bilbo_tts.tts import FakeTtsEngine, TtsError
+from bilbo_tts.tts import FakeTtsEngine
 from bilbo_tts.tts.factory import create_tts_engine
 
 ROOT = Path(__file__).parents[1]
@@ -128,10 +128,10 @@ def test_candidate_loaders_report_file_yaml_shape_and_schema_errors(tmp_path: Pa
         load_asr_candidate(malformed)
 
 
-def test_factory_constructs_fake_and_keeps_real_adapters_lazy() -> None:
+def test_factory_constructs_fake_and_real_adapters_lazily() -> None:
     engine = create_tts_engine(fake_candidate())
     assert isinstance(engine, FakeTtsEngine)
 
     chatterbox = load_tts_candidate(candidate_path(ROOT, "chatterbox"))
-    with pytest.raises(TtsError, match="not implemented"):
-        create_tts_engine(chatterbox)
+    real_engine = create_tts_engine(chatterbox, ROOT)
+    assert real_engine.capabilities.engine == "chatterbox"

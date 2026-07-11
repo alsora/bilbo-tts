@@ -53,7 +53,7 @@ def qualify_tts(engine_name: str, project_root: Path) -> TtsQualificationSummary
             f"candidate engine {candidate.engine!r} does not match requested engine {engine_name!r}"
         )
     corpus = load_corpus(default_corpus_path(root))
-    engine = create_tts_engine(candidate)
+    engine = create_tts_engine(candidate, root)
     return run_qualification(engine, candidate, corpus, root)
 
 

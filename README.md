@@ -317,7 +317,18 @@ The command writes canonical evidence to `work/tts-qualification/fake/result.jso
 It writes one validated mono 16-bit PCM WAV per excerpt under `work/tts-qualification/fake/audio/`.
 It writes a compact exception-focused report to `work/tts-qualification/fake/summary.md`.
 
-Run a real candidate only from its isolated environment after the corresponding adapter and hardware checks are available:
+Run each opt-in smoke test from its isolated environment on Apple Silicon:
+
+```shell
+BILBO_HARDWARE_TESTS=1 .tools/bin/pixi run -e chatterbox pytest \
+  tests/hardware/test_chatterbox_smoke.py -v --no-cov
+BILBO_HARDWARE_TESTS=1 .tools/bin/pixi run -e kokoro pytest \
+  tests/hardware/test_kokoro_smoke.py -v --no-cov
+```
+
+The smoke tests use the same short committed Italian excerpt and are skipped unless `BILBO_HARDWARE_TESTS=1`.
+They resolve only the immutable model revisions recorded in the candidate configurations.
+Run a complete candidate only after its smoke test passes:
 
 ```shell
 .tools/bin/pixi run -e chatterbox bilbo qualify-tts chatterbox --project-root .
@@ -327,6 +338,10 @@ Run a real candidate only from its isolated environment after the corresponding 
 Model downloads use the ignored cache paths below `work/cache/`.
 The qualification runner records exact model, voice, settings, inference parameters, checksums, timings, real-time factor, failures, and process peak RSS when macOS exposes it.
 No real model is imported by ordinary tests or `pixi run check`.
+If health reports a missing package, rerun the command in the matching Pixi environment.
+If health reports unavailable MPS or Metal, verify that the command is running on Apple Silicon in the intended environment.
+For an MPS or Metal out-of-memory failure, stop other GPU workloads and rerun the failed smoke test before attempting the full corpus.
+Treat a repeated model-load or memory failure as qualification evidence instead of changing the pinned model or settings.
 
 After two complete qualification runs, create a deterministic blind-listening package:
 

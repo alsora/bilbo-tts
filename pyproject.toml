@@ -67,9 +67,9 @@ mlx-whisper = "==0.4.3"
 [tool.pixi.environments]
 default = ["base", "dev"]
 base = ["base"]
-chatterbox = ["base", "chatterbox"]
-kokoro = ["base", "kokoro"]
-asr = ["base", "asr"]
+chatterbox = ["base", "dev", "chatterbox"]
+kokoro = ["base", "dev", "kokoro"]
+asr = ["base", "dev", "asr"]
 
 [tool.ruff]
 line-length = 100
