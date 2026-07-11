@@ -2,12 +2,13 @@
 
 ## Current state
 
-- Milestone 2 source ingestion is automatically verified.
-- Checkpoint C2 is awaiting the required manual review of one representative target-book chapter.
+- Milestone 2 source ingestion is complete.
+- Checkpoint C2 is approved.
 - The active branch is `milestone/c2-source-ingestion`.
 - The C2 implementation commits are `c925ca3`, `24f56a9`, `c46afe2`, and `b8c6d21`.
+- The branch is published at `origin/milestone/c2-source-ingestion`.
 - The private target source from `/Users/alsora/repos/alsora/tts-investimento` is staged only under ignored `work/c2-target-project/`.
-- The representative chapter is `Introduzione` in `work/c2-target-project/work/tts-investimento/reports/extraction.md`.
+- The representative chapter `Introduzione` was manually approved for reading order, structure, omissions, and warnings.
 
 ## Completed work
 
@@ -34,6 +35,7 @@
 - `Introduzione` contains ordered blocks `block-000005` through `block-000039`, including four list items and one footnote with no block-specific warnings.
 - Target checks confirm `app:dati-rendimento` renders as `appendice A.5` and `chap:analizzare-prodotti` renders as `capitolo 10`.
 - Labels on unnumbered subsections resolve to their numbered parent sections, and no target cross-reference remains unresolved.
+- The user manually approved `Introduzione` after reviewing the source and corrected extraction report.
 
 ## Durable references
 
@@ -43,5 +45,6 @@
 
 ## Next action
 
-- Obtain manual approval of `Introduzione` for reading order, paragraph/list/footnote structure, omitted inline citations, numbered cross-references, and the absence of silent omissions.
-- After approval, record checkpoint C2 as complete in this handoff and push the final documentation commit.
+- Merge `milestone/c2-source-ingestion` before starting C3.
+- Create `milestone/c3-normalization-chunking` from the updated `main`.
+- Implement deterministic Italian normalization, pronunciation lexicons, stable chunking, reports, and the manual chapter review required by checkpoint C3.
