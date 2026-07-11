@@ -7,6 +7,7 @@
 - The C1 implementation commit is `8e0b25f`.
 - The branch is pushed to `origin/milestone/c1-artifact-contracts`.
 - No C1 manual verification remains.
+- Intentional working-tree changes add README test instructions, clarify fixture and integration-test timing in `implementation.md`, and record those documentation updates here.
 
 ## Completed work
 
@@ -23,6 +24,7 @@
 - Every manifest schema round-trips through canonical JSON with stable hashes.
 - Tests prove all synthesis-affecting inputs invalidate cache keys while presentation metadata does not.
 - Tests reject unknown configuration, incompatible paths, corrupt payloads, stale or missing upstream artifacts, workspace escapes, and interrupted writes.
+- The documented focused Pytest command was run successfully after the README update.
 
 ## Durable references
 

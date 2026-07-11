@@ -40,6 +40,37 @@ Model-specific environments are named `chatterbox`, `kokoro`, and `asr`.
 
 Their dependencies will be added at the model qualification milestone.
 
+## Testing
+
+Install the locked development environment before running tests:
+
+```shell
+.tools/bin/pixi install --locked
+```
+
+Run the complete unit test suite with coverage:
+
+```shell
+.tools/bin/pixi run test
+```
+
+Run one test module or one specific test directly with Pytest:
+
+```shell
+.tools/bin/pixi run pytest tests/test_artifacts.py -v --no-cov
+.tools/bin/pixi run pytest tests/test_artifacts.py::test_artifact_round_trip_is_deterministic -v --no-cov
+```
+
+Focused runs disable the repository-wide coverage gate, which is enforced by the complete suite.
+
+Run the full fast verification gate, including formatting, linting, strict type checking, and tests:
+
+```shell
+.tools/bin/pixi run check
+```
+
+Pytest settings and the minimum coverage threshold are defined in [`pyproject.toml`](pyproject.toml).
+
 ## Book configuration and artifacts
 
 Each book uses a strict `books/<book-id>/book.yaml` configuration with schema version `book-config/v1`.

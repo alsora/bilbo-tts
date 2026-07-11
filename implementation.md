@@ -14,6 +14,9 @@ Every milestone uses the smallest relevant set of these verification levels:
 - **Quality checks:** fixed Italian regression excerpts, objective metrics, and explicit listening review.
 - **End-to-end checks:** one representative chapter before full-book generation.
 
+Milestones C0 and C1 do not require content-stage integration tests because no content-processing CLI stage exists yet.
+Milestone C2 establishes the reusable integration-test harness and committed file-based source fixtures used by later stages.
+
 Every stage must validate upstream hashes, write outputs atomically, and emit a machine-readable summary. Missing, invalid, or stale artifacts block downstream work.
 
 ```mermaid
@@ -61,6 +64,7 @@ Verify:
 - Test valid and invalid manifests, deterministic serialization, unknown fields, corruption, and interrupted writes.
 - Prove that spoken text, lexicon, voice, model revision, or synthesis-setting changes affect the appropriate cache key.
 - Prove that unrelated presentation metadata does not invalidate generated audio.
+- Exercise a programmatically constructed synthetic book across every manifest schema; persistent source-file fixtures are not required until C2.
 
 Checkpoint C1:
 
@@ -71,6 +75,7 @@ Checkpoint C1:
 Build:
 
 - Implement LaTeX ingestion through Pandoc AST and born-digital PDF ingestion through the adapters chosen in [`design.md`](design.md#components-and-proposed-layout).
+- Add the reusable CLI integration-test harness and committed tiny-book fixture layout for content-processing stages.
 - Preserve chapter order, paragraphs, relevant source locations, and extraction warnings.
 - Define explicit handling for footnotes, lists, quotations, tables, equations, captions, references, headers, and footers.
 - Record exclusions instead of silently dropping content.
@@ -78,7 +83,8 @@ Build:
 
 Verify:
 
-- Create reviewed LaTeX and PDF fixtures containing structural and formatting edge cases.
+- Create committed, reviewed LaTeX and PDF fixtures containing structural and formatting edge cases.
+- Run the ingestion CLI against those fixtures without downloading models.
 - Compare extraction against golden manifests.
 - Check chapter order, paragraph counts, non-empty text, source references, and warnings for unsupported or scanned material.
 
