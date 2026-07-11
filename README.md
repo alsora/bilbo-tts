@@ -164,10 +164,10 @@ chunking:
   max_characters: 300
 
 synthesis:
-  engine: fixture
-  model_revision: fixture-v1
+  engine: fake
+  model_revision: fake-v1
   voice:
-    voice_id: narrator
+    voice_id: fake-voice
   settings:
     sample_rate_hz: 24000
     seed: 7
@@ -190,8 +190,8 @@ The reviewed built-in finance lexicon in `config/lexicons/finance-it.yaml` is al
 Entries in `normalization.lexicons` are checksum-pinned, book-relative overlays applied in listed order.
 Keep engine-specific pronunciation overrides in separately named overlay files so model-independent speech text remains auditable.
 `chunking.max_characters` is an explicit positive character limit; engine-specific phoneme limits are deferred until model qualification.
-The `fixture` synthesis values satisfy the current configuration contract but do not select the production voice or model.
-Replace those values during model qualification before generating audio.
+The `fake` synthesis values select the deterministic dependency-free engine used by committed integration fixtures.
+For production, replace them with the qualified Chatterbox values documented below.
 The optional `assembly` section may be omitted to use the default pause and loudness settings.
 Unknown fields and misspelled field names are rejected with an actionable validation error.
 
@@ -389,3 +389,69 @@ After two complete qualification runs, create a deterministic blind-listening pa
 
 The command writes opaque WAV names and `rating-sheet.md` below `work/tts-qualification/listening/`.
 Keep `mapping.json` closed until all ratings have been recorded.
+
+## Resumable synthesis
+
+Run synthesis only after the normalized text and chunking reports are approved.
+Production books use the qualified Chatterbox identity and request settings:
+
+```yaml
+synthesis:
+  engine: chatterbox
+  model_revision: 5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18
+  voice:
+    voice_id: builtin
+  settings:
+    sample_rate_hz: 24000
+    seed: 20260711
+    speed: 1.0
+    temperature: 0.8
+  max_retries: 2
+```
+
+Run Chatterbox from its isolated Pixi environment:
+
+```shell
+.tools/bin/pixi run -e chatterbox bilbo synthesize books/my-book/book.yaml
+```
+
+For an isolated private project, pass the same project root used by the text stages:
+
+```shell
+.tools/bin/pixi run -e chatterbox bilbo synthesize \
+  books/my-book/book.yaml \
+  --project-root work/private-project
+```
+
+The stage processes chunks sequentially and loads the model only when selected audio must be generated.
+Each chunk writes `work/<book-id>/audio/<chunk-id>/<cache-key>.wav` and an adjacent generation sidecar.
+The current book state is recorded in `manifests/generation-manifest.json` and summarized in `reports/synthesis.md`.
+Every existing pair is validated for identity, checksum, mono PCM16 format, sample rate, frame count, and duration before it is skipped.
+An unchanged rerun is therefore a no-op and does not load model weights.
+
+Restrict a run with any combination of chapter and inclusive chunk sequence bounds:
+
+```shell
+.tools/bin/pixi run -e chatterbox bilbo synthesize books/my-book/book.yaml \
+  --chapter chapter-0002 \
+  --chunk-start 20 \
+  --chunk-end 40
+```
+
+Combined selectors intersect.
+Invalid chapter identifiers and ranges fail before model loading.
+Use `--failed` to select only chunks whose current cache identity has an exhausted TTS failure.
+Use `--force` to regenerate otherwise valid selected chunks.
+Automatic fallback is intentionally absent; switch the book configuration to the pinned Kokoro identity and run from the `kokoro` environment when the documented manual contingency is required.
+
+If synthesis is interrupted, rerun the same command.
+Completed sidecar/WAV pairs remain valid, while missing or incomplete pairs are regenerated.
+After `max_retries + 1` failed attempts, the stage writes a structured failure sidecar, continues other selected chunks, emits a partial or failed summary, and exits nonzero.
+Correct the reported problem and rerun with `--failed`.
+Do not edit generated sidecars or manifests by hand.
+
+Run the model-free synthesis integration checks with:
+
+```shell
+.tools/bin/pixi run pytest tests/integration/test_synthesis_cli.py -v --no-cov
+```

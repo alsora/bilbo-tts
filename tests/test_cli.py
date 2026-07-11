@@ -13,6 +13,7 @@ from bilbo_tts.ingest import IngestionError, IngestSummary
 from bilbo_tts.models import SourceFormat
 from bilbo_tts.normalization import NormalizationError, NormalizeSummary
 from bilbo_tts.review_service import ChunkReviewSummary, ExtractionReviewSummary
+from bilbo_tts.synthesis import SynthesisError, SynthesizeSummary
 
 runner = CliRunner()
 
@@ -243,3 +244,90 @@ def test_chunk_prints_json_error_and_exits_nonzero(monkeypatch: pytest.MonkeyPat
         "status": "failed",
         "error": "chunk is unusable",
     }
+
+
+def test_synthesize_prints_summary_and_forwards_selectors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summary = SynthesizeSummary(
+        status="completed",
+        book_id="book",
+        chunk_manifest_sha256="a" * 64,
+        selected_count=1,
+        generated_count=1,
+        skipped_count=0,
+        failed_count=0,
+        missing_count=2,
+        generation_manifest_path="manifests/generation-manifest.json",
+        generation_manifest_sha256="b" * 64,
+        report_path="reports/synthesis.md",
+        report_sha256="c" * 64,
+    )
+    arguments: dict[str, object] = {}
+
+    def synthesize(_config: object, _root: object, **kwargs: object) -> SynthesizeSummary:
+        arguments.update(kwargs)
+        return summary
+
+    monkeypatch.setattr(cli, "synthesize_book", synthesize)
+    result = runner.invoke(
+        cli.app,
+        [
+            "synthesize",
+            "books/book/book.yaml",
+            "--chapter",
+            "chapter-1",
+            "--chunk-start",
+            "2",
+            "--chunk-end",
+            "4",
+            "--failed",
+            "--force",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+    assert arguments == {
+        "chapter": "chapter-1",
+        "chunk_start": 2,
+        "chunk_end": 4,
+        "failed_only": True,
+        "force": True,
+    }
+
+
+def test_synthesize_prints_json_error_and_partial_status_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail(_config: object, _root: object, **_kwargs: object) -> None:
+        raise SynthesisError("generation is unavailable")
+
+    monkeypatch.setattr(cli, "synthesize_book", fail)
+    failed = runner.invoke(cli.app, ["synthesize", "books/book/book.yaml"])
+    assert failed.exit_code == 1
+    assert json.loads(failed.stdout) == {
+        "schema_version": "synthesize-summary/v1",
+        "status": "failed",
+        "error": "generation is unavailable",
+    }
+
+    partial = SynthesizeSummary(
+        status="partial",
+        book_id="book",
+        chunk_manifest_sha256="a" * 64,
+        selected_count=2,
+        generated_count=1,
+        skipped_count=0,
+        failed_count=1,
+        missing_count=0,
+        generation_manifest_path="manifests/generation-manifest.json",
+        generation_manifest_sha256="b" * 64,
+        report_path="reports/synthesis.md",
+        report_sha256="c" * 64,
+    )
+    monkeypatch.setattr(cli, "synthesize_book", lambda *_args, **_kwargs: partial)
+    partial_result = runner.invoke(cli.app, ["synthesize", "books/book/book.yaml"])
+
+    assert partial_result.exit_code == 1
+    assert json.loads(partial_result.stdout)["status"] == "partial"

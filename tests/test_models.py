@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from bilbo_tts.models import (
     AlignmentEdit,
     AppliedTransformation,
+    BackendIdentity,
     BlockKind,
     BookDocument,
     BreakKind,
@@ -107,8 +108,12 @@ def make_manifests() -> tuple[
     identity = SynthesisIdentity(
         spoken_text=chunk.spoken_text,
         normalization_version=normalized.normalization_version,
-        lexicon_sha256=normalized.lexicon_sha256,
         model=ModelIdentity(engine="fake", revision="model-revision"),
+        backend=BackendIdentity(
+            backend="stdlib",
+            model_id="bilbo-tts/fake",
+            inference_parameters={"mode": "test"},
+        ),
         voice=VoiceIdentity(voice_id="narrator", reference_sha256=HASH_C),
         settings=SynthesisSettings(sample_rate_hz=24_000, seed=7),
     )
@@ -117,7 +122,10 @@ def make_manifests() -> tuple[
         chunk_content_sha256=chunk.content_sha256,
         identity=identity,
         cache_key=identity.cache_key(),
+        output_path="audio/chunk-1/output.wav",
         output_sha256=HASH_A,
+        sample_rate_hz=24_000,
+        frame_count=52_800,
         duration_ms=2200,
         retry_number=0,
     )
@@ -236,8 +244,15 @@ def test_chunk_and_generation_reject_mismatched_hashes() -> None:
     [
         ("spoken_text", "Testo cambiato."),
         ("normalization_version", "it-v2"),
-        ("lexicon_sha256", HASH_A),
         ("model", ModelIdentity(engine="fake", revision="new-revision")),
+        (
+            "backend",
+            BackendIdentity(
+                backend="stdlib",
+                model_id="bilbo-tts/fake",
+                inference_parameters={"mode": "changed"},
+            ),
+        ),
         ("voice", VoiceIdentity(voice_id="other-voice")),
         ("settings", SynthesisSettings(sample_rate_hz=48_000, seed=8)),
     ],

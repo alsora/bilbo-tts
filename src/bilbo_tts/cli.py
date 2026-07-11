@@ -35,6 +35,7 @@ from bilbo_tts.review_service import (
 )
 from bilbo_tts.serialization import canonical_json_bytes
 from bilbo_tts.stages import StageError
+from bilbo_tts.synthesis import SynthesisError, synthesize_book
 from bilbo_tts.tts import TtsError
 
 app = typer.Typer(
@@ -48,7 +49,7 @@ ProjectRootOption = Annotated[
 ]
 ChapterOption = Annotated[
     str,
-    typer.Option("--chapter", help="Stable chapter identifier to review."),
+    typer.Option("--chapter", help="Stable chapter identifier."),
 ]
 EngineArgument = Annotated[str, typer.Argument(help="Qualification engine name.")]
 EnginesArgument = Annotated[
@@ -169,6 +170,58 @@ def chunk(
         _fail_stage("chunk-summary/v1", error)
 
     typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+
+
+@app.command()
+def synthesize(
+    config: ConfigArgument,
+    project_root: ProjectRootOption = Path("."),
+    chapter: Annotated[
+        str | None,
+        typer.Option("--chapter", help="Synthesize only this stable chapter identifier."),
+    ] = None,
+    chunk_start: Annotated[
+        int | None,
+        typer.Option("--chunk-start", help="First inclusive chunk sequence."),
+    ] = None,
+    chunk_end: Annotated[
+        int | None,
+        typer.Option("--chunk-end", help="Last inclusive chunk sequence."),
+    ] = None,
+    failed_only: Annotated[
+        bool,
+        typer.Option("--failed", help="Retry only chunks with a current synthesis failure."),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Regenerate valid selected chunks."),
+    ] = False,
+) -> None:
+    """Generate validated, resumable WAV files for configured chunks."""
+
+    try:
+        summary = synthesize_book(
+            config,
+            project_root,
+            chapter=chapter,
+            chunk_start=chunk_start,
+            chunk_end=chunk_end,
+            failed_only=failed_only,
+            force=force,
+        )
+    except (
+        ArtifactError,
+        CandidateConfigurationError,
+        ConfigurationError,
+        StageError,
+        SynthesisError,
+        TtsError,
+    ) as error:
+        _fail_stage("synthesize-summary/v1", error)
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+    if summary.status != "completed":
+        raise typer.Exit(code=1)
 
 
 @app.command("qualify-tts")

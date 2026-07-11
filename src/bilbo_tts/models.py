@@ -10,7 +10,9 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    JsonValue,
     StringConstraints,
+    TypeAdapter,
     field_validator,
     model_validator,
 )
@@ -298,13 +300,30 @@ class SynthesisSettings(ContractModel):
     temperature: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
+class BackendIdentity(ContractModel):
+    """Exact backend configuration that can affect waveform output."""
+
+    backend: Identifier
+    model_id: NonEmptyText
+    code_revision: NonEmptyText | None = None
+    inference_parameters: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("inference_parameters")
+    @classmethod
+    def parameters_are_canonical(cls, parameters: dict[str, JsonValue]) -> dict[str, JsonValue]:
+        for name in parameters:
+            TypeAdapter(Identifier).validate_python(name)
+        canonical_sha256(parameters)
+        return parameters
+
+
 class SynthesisIdentity(ContractModel):
     """Complete set of inputs used to address generated audio."""
 
     spoken_text: NonEmptyText
     normalization_version: NonEmptyText
-    lexicon_sha256: Sha256
     model: ModelIdentity
+    backend: BackendIdentity
     voice: VoiceIdentity
     settings: SynthesisSettings
 
@@ -322,9 +341,34 @@ class GenerationRecord(ContractModel):
     chunk_content_sha256: Sha256
     identity: SynthesisIdentity
     cache_key: Sha256
+    output_path: NonEmptyText
     output_sha256: Sha256
+    sample_rate_hz: int = Field(gt=0)
+    frame_count: int = Field(gt=0)
     duration_ms: int = Field(gt=0)
     retry_number: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def identity_and_audio_metadata_match(self) -> Self:
+        if self.cache_key != self.identity.cache_key():
+            raise ValueError("cache_key does not match synthesis identity")
+        expected_duration = max(1, round(self.frame_count * 1000 / self.sample_rate_hz))
+        if self.duration_ms != expected_duration:
+            raise ValueError("duration_ms does not match frame count and sample rate")
+        return self
+
+
+class GenerationFailure(ContractModel):
+    """Persistent structured failure for one current synthesis identity."""
+
+    schema_version: Literal["generation-failure/v1"] = "generation-failure/v1"
+    chunk_id: Identifier
+    chunk_content_sha256: Sha256
+    identity: SynthesisIdentity
+    cache_key: Sha256
+    attempt_count: int = Field(gt=0, le=11)
+    exception_type: NonEmptyText
+    message: NonEmptyText
 
     @model_validator(mode="after")
     def cache_key_matches(self) -> Self:
@@ -340,14 +384,23 @@ class GenerationManifest(ContractModel):
     book_id: Identifier
     chunk_manifest_sha256: Sha256
     records: tuple[GenerationRecord, ...]
+    failures: tuple[GenerationFailure, ...] = ()
+    missing_chunk_ids: tuple[Identifier, ...] = ()
 
-    @field_validator("records")
-    @classmethod
-    def chunks_are_unique(
-        cls, records: tuple[GenerationRecord, ...]
-    ) -> tuple[GenerationRecord, ...]:
+    @model_validator(mode="after")
+    def chunks_are_unique(self) -> Self:
+        records = self.records
+        failures = self.failures
         _require_unique((record.chunk_id for record in records), "chunk_id")
-        return records
+        _require_unique((failure.chunk_id for failure in failures), "failed chunk_id")
+        _require_unique(self.missing_chunk_ids, "missing chunk_id")
+        states = [
+            *(record.chunk_id for record in records),
+            *(failure.chunk_id for failure in failures),
+            *self.missing_chunk_ids,
+        ]
+        _require_unique(states, "generation state chunk_id")
+        return self
 
 
 class AlignmentEdit(ContractModel):

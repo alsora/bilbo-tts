@@ -13,10 +13,10 @@ normalization:
 chunking:
   max_characters: 160
 synthesis:
-  engine: fixture
-  model_revision: fixture-v1
+  engine: fake
+  model_revision: fake-v1
   voice:
-    voice_id: narrator
+    voice_id: fake-voice
   settings:
     sample_rate_hz: 24000
     seed: 7

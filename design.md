@@ -51,7 +51,7 @@ flowchart LR
 - `BookDocument`: chapters containing ordered blocks with source locations, paragraph boundaries, and untouched display text.
 - `NormalizedBlock`: both `display_text` and `spoken_text`, plus an audit list of applied rules. Never overwrite the source text.
 - `ChunkRecord`: stable chapter/paragraph/sentence IDs, pause metadata, spoken text, expected language, and a content hash.
-- `GenerationRecord`: engine/model revision, voice/reference hash, inference parameters, seed, output checksum, duration, and retry number.
+- `GenerationRecord`: engine/model revision, backend and code identity, voice/reference hash, inference parameters, seed, output path and checksum, exact audio metadata, and retry number.
 - `VerificationRecord`: transcript, WER, CER, alignment edits, duration/speaking-rate checks, pass/fail reasons, and review status.
 
 Persistent manifests use explicit schema identifiers such as `book-document/v1` and reject unknown fields.
@@ -60,7 +60,9 @@ Each stored artifact is wrapped in an `artifact-envelope/v1` record containing t
 Artifact reads validate the envelope, payload checksum, requested contract, and current upstream checksums before returning data.
 Artifact replacement uses a temporary file, file synchronization, and atomic rename within the owning `work/<book-id>/` workspace.
 
-A chunk cache key hashes the spoken text, normalization version, lexicon checksum, model revision, voice identity and reference checksum, and synthesis settings.
+A chunk cache key hashes the spoken text, normalization version, model revision, backend and code identity, inference parameters, voice identity and reference checksum, and synthesis settings.
+The aggregate lexicon checksum remains on the normalized document for provenance and stale-artifact validation, while the resulting spoken text provides chunk-local synthesis invalidation.
+This permits a lexicon edit to retain cached audio for chunks whose spoken text did not change.
 Presentation metadata such as title, author, narrator, subtitle, and cover does not contribute to the synthesis cache key.
 Merely skipping an existing filename is unsafe after a lexicon or model change.
 
@@ -102,6 +104,9 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - When an over-limit sentence can fit into two chunks, prefer a semicolon or colon over a comma while avoiding fragments shorter than one quarter of the configured limit; otherwise split at the latest available punctuation and then fall back to whitespace.
 - [`src/bilbo_tts/tts/`](src/bilbo_tts/tts/): a narrow engine interface plus Chatterbox and Kokoro adapters.
 - TTS engines return native-rate mono signed 16-bit little-endian PCM with exact frame-count and duration metadata.
+- The synthesize stage stores each chunk at `work/<book-id>/audio/<chunk-id>/<cache-key>.wav` with an adjacent generation-record sidecar.
+- A successful sidecar is the commit marker for its WAV; resume validates both files, their identities, audio metadata, and checksum before skipping generation.
+- The stage processes chunks sequentially, persists exhausted attempts as structured failure sidecars, and rebuilds the current generation manifest after every run.
 - Qualification remains independent of book artifacts and writes canonical evidence below `work/tts-qualification/<engine>/`.
 - [`src/bilbo_tts/asr/`](src/bilbo_tts/asr/): a narrow transcription interface with an MLX-Whisper implementation.
 - [`src/bilbo_tts/verification.py`](src/bilbo_tts/verification.py): JiWER-based scoring, repetition/truncation and duration heuristics, bounded retries, and a machine-readable review queue.
