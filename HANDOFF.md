@@ -2,31 +2,31 @@
 
 ## Current state
 
-- Checkpoint C1 is complete.
-- The active branch is `milestone/c1-artifact-contracts`.
-- The C1 implementation commit is `8e0b25f`.
-- The branch is pushed to `origin/milestone/c1-artifact-contracts`.
-- No C1 manual verification remains.
-- Intentional working-tree changes apply the `delete` and `shrink` recommendations from the repository over-engineering audit.
+- Milestone 2 source ingestion is automatically verified.
+- Checkpoint C2 is awaiting the required manual review of one representative target-book chapter.
+- The active branch is `milestone/c2-source-ingestion`.
+- The C2 implementation commit is `c925ca3`.
+- The target LaTeX source is available but its repository path and representative chapter have not been supplied.
 
 ## Completed work
 
-- Added strict Pydantic contracts for book, normalized text, chunk, generation, and verification manifests.
-- Added deterministic canonical JSON, SHA-256 content hashes, and synthesis cache identities.
-- Added strict YAML book configuration with relative-path and compatibility validation.
-- Added an atomic, checksummed artifact store with workspace ownership and upstream staleness checks.
-- Updated dependencies, lock data, architecture policy, and user-facing documentation.
-- Removed the unused manifest registry, duplicate environment alias, unread backend activation variables, redundant acceleration fields, and duplicate package version constant.
-- Preserved the audit findings tagged `yagni`, including `BookWorkspace` and the artifact envelope type field.
+- Added deterministic LaTeX ingestion through Pandoc AST and born-digital PDF ingestion through PyMuPDF4LLM.
+- Added explicit handling for chapters, paragraphs, headings, lists, quotations, footnotes, tables, equations, captions, references, images, page furniture, blank pages, and scanned material.
+- Added aggregate LaTeX source hashing, include-boundary validation, PDF page references, stable IDs, and actionable adapter failures.
+- Added `bilbo ingest`, canonical atomic document artifacts, deterministic JSON summaries, and readable atomic extraction reports.
+- Added reviewed LaTeX, born-digital PDF, and scanned PDF fixtures with deterministic generators and byte-exact goldens.
+- Added a reusable CLI integration harness and expanded unit, boundary, failure, and idempotency coverage.
+- Updated the locked environment, architecture policy, fixture policy, and user-facing command documentation.
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, and 43 unit tests with the audit simplifications.
-- Test coverage is 97.39 percent.
-- Every manifest schema round-trips through canonical JSON with stable hashes.
-- Tests prove all synthesis-affecting inputs invalidate cache keys while presentation metadata does not.
-- Tests reject unknown configuration, incompatible paths, corrupt payloads, stale or missing upstream artifacts, workspace escapes, and interrupted writes.
-- The documented focused Pytest command was run successfully after the README update.
+- The C1 baseline `.tools/bin/pixi run check` passed before implementation.
+- The focused C2 verification passed 46 unit and integration tests.
+- `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, and all 75 tests.
+- Test coverage is 92.82 percent.
+- Real CLI integrations match byte-exact LaTeX and PDF golden artifacts and reports without model downloads.
+- Repeated fixture generation and ingestion produce byte-identical outputs.
+- Tests reject source and include escapes, malformed adapter output, scanned PDFs, missing tools, invalid summaries, and partial canonical writes.
 
 ## Durable references
 
@@ -36,7 +36,7 @@
 
 ## Next action
 
-- Review and commit the intentional working-tree changes.
-- Merge `milestone/c1-artifact-contracts` before starting C2.
-- Create `milestone/c2-source-ingestion` from the updated `main`.
-- Implement LaTeX and born-digital PDF ingestion, reviewed fixtures, canonical `BookDocument` output, and readable extraction reports required by checkpoint C2.
+- Obtain the target book directory or source path and the representative chapter selection.
+- Run `bilbo ingest` against that target without committing private book content unless explicitly approved.
+- Present the representative chapter from `work/<book-id>/reports/extraction.md` for approval of reading order, structure, omissions, and every warning.
+- After approval, record checkpoint C2 as complete in this handoff and push the final documentation commit.
