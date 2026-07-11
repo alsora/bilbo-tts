@@ -9,6 +9,7 @@
 - The branch is published at `origin/milestone/c2-source-ingestion`.
 - The private target source from `/Users/alsora/repos/alsora/tts-investimento` is staged only under ignored `work/c2-target-project/`.
 - The representative chapter `Introduzione` was manually approved for reading order, structure, omissions, and warnings.
+- Intentional uncommitted changes expand `README.md` with step-by-step book preparation, configuration, extraction, and review instructions.
 
 ## Completed work
 
@@ -45,6 +46,7 @@
 
 ## Next action
 
+- Review and commit the source-ingestion README update.
 - Merge `milestone/c2-source-ingestion` before starting C3.
 - Create `milestone/c3-normalization-chunking` from the updated `main`.
 - Implement deterministic Italian normalization, pronunciation lexicons, stable chunking, reports, and the manual chapter review required by checkpoint C3.

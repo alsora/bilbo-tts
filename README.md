@@ -84,28 +84,152 @@ Synthesis cache keys include every audio-affecting input while excluding present
 
 ## Source ingestion
 
-Place a configured source below its owning book directory, for example `books/my-book/source/main.tex`.
-The `book_id` in `book.yaml` must match the directory containing that configuration.
+Follow these steps from the repository root.
 
-Run source ingestion from the project root:
+### 1. Prepare the book directory
+
+Create one directory below `books/`.
+Choose a short lowercase identifier containing letters, digits, hyphens, underscores, or dots, such as `my-book`.
+The identifier must start and end with a letter or digit, and separators cannot be repeated.
+The directory name and the `book_id` value in `book.yaml` must match exactly.
+
+For a LaTeX book, use this layout:
+
+```text
+books/
+  my-book/
+    book.yaml
+    source/
+      main.tex
+      chapters/
+        chapter-one.tex
+      assets/
+        cover.jpg
+```
+
+Copy the complete LaTeX source tree below `source/`, not only the entry-point file.
+All files reached through `\input`, `\include`, or static `\import` must remain below that directory.
+LaTeX files must be UTF-8, and symlinks or paths that escape the source directory are rejected.
+The entry point may use parts, chapters, sections, lists, quotations, footnotes, tables, equations, figures, citations, and cross-references.
+Inline citations are recorded and omitted from narration, while cross-references retain Italian structural names and source-derived numbers.
+
+For a PDF book, use this layout:
+
+```text
+books/
+  my-book/
+    book.yaml
+    source/
+      book.pdf
+```
+
+PDF ingestion requires a born-digital PDF with selectable text.
+OCR is intentionally disabled, so an image-only or scanned page stops ingestion instead of producing incomplete text.
+
+Book source files are not globally ignored by Git because some projects may choose to version them.
+Do not stage or commit private or copyrighted source material unless that is intentional.
+To keep a private book inside ignored storage, use an isolated project root such as `work/private-project/` and place the book under `work/private-project/books/my-book/`.
+Pass that root explicitly while keeping the configuration path relative to it:
+
+```shell
+.tools/bin/pixi run bilbo ingest books/my-book/book.yaml --project-root work/private-project
+```
+
+This layout writes derived outputs below `work/private-project/work/my-book/`.
+
+### 2. Create `book.yaml`
+
+Create `books/my-book/book.yaml` with the following minimal LaTeX configuration:
+
+```yaml
+schema_version: book-config/v1
+book_id: my-book
+language: it
+
+input:
+  format: latex
+  path: source/main.tex
+
+metadata:
+  title: Titolo del libro
+  author: Nome Autore
+
+normalization:
+  version: it-v1
+  lexicons: []
+
+synthesis:
+  engine: fixture
+  model_revision: fixture-v1
+  voice:
+    voice_id: narrator
+  settings:
+    sample_rate_hz: 24000
+    seed: 7
+```
+
+For a PDF, change only the input section:
+
+```yaml
+input:
+  format: pdf
+  path: source/book.pdf
+```
+
+`schema_version`, `book_id`, `language`, `input`, `metadata`, `normalization`, and `synthesis` are required.
+`language` is currently fixed to `it`.
+Every configured path is relative to the directory containing `book.yaml`; absolute paths, `..`, backslashes, and mismatched file extensions are rejected.
+Optional metadata fields are `subtitle`, `narrator`, and `cover_path`.
+`cover_path`, when present, must point to a relative JPEG or PNG file.
+The empty `lexicons` list means that no pronunciation lexicon is active yet.
+The `fixture` synthesis values satisfy the current configuration contract but do not select the production voice or model.
+Replace those values during model qualification before generating audio.
+The optional `assembly` section may be omitted to use the default pause and loudness settings.
+Unknown fields and misspelled field names are rejected with an actionable validation error.
+
+### 3. Run extraction
+
+Install the locked environment once:
+
+```shell
+.tools/bin/pixi install --locked
+```
+
+Run ingestion from the repository root:
 
 ```shell
 .tools/bin/pixi run bilbo ingest books/my-book/book.yaml
 ```
 
-The command emits an `ingest-summary/v1` JSON object on standard output.
-It writes the canonical artifact to `work/my-book/manifests/book-document.json`.
-It writes the chapter text, source references, warnings, and exclusions to `work/my-book/reports/extraction.md`.
-Unchanged input produces byte-identical output files and checksums.
+Successful output is a single JSON object with `"status":"completed"`, chapter and block counts, warning and exclusion counts, and output checksums.
+The command writes the canonical artifact to `work/my-book/manifests/book-document.json`.
+The command writes the readable review report to `work/my-book/reports/extraction.md`.
+If extraction fails, read the JSON error and any generated report, correct the source or configuration, and rerun the same command.
+Rerunning unchanged input produces byte-identical files and checksums.
 
-LaTeX is parsed through the locked Pandoc executable and ordinary `\input`, `\include`, or static `\import` files below the source directory contribute to the source checksum.
-Pandoc does not expose reliable LaTeX line positions in its JSON AST, so reports retain source paths without fabricated line numbers.
-Inline citations are recorded and omitted from narration, while cross-references retain Italian structural names and source-derived numbers.
-Born-digital PDFs are extracted page by page through PyMuPDF4LLM with OCR disabled.
-An image-only or scanned PDF page exits with status 1, writes a failed extraction report, and does not write a partial canonical document.
-Resolve scanned pages outside this milestone before rerunning ingestion.
+### 4. Review extraction
 
-Review `extraction.md` before downstream processing, paying particular attention to table order, equations, omissions, headers, footers, and adapter warnings.
+Open `work/my-book/reports/extraction.md` before running any downstream stage.
+The first section summarizes the source checksum, chapter count, block count, warnings, and exclusions.
+The rest of the report lists every extracted chapter and block in reading order.
+
+Use this review checklist:
+
+1. Confirm that the chapter titles, count, and order match the source.
+2. Compare at least one representative chapter against the source from beginning to end.
+3. Check that every paragraph appears once and that no text is missing, duplicated, or moved.
+4. Check that headings, list items, quotations, captions, and footnotes appear in the intended reading position.
+5. For PDFs, check page references, multi-column reading order, and removal of repeated headers and footers.
+6. Read every warning and exclusion, especially those for tables, equations, images, citations, and unsupported material.
+7. Check tables row by row because they are flattened into spoken order and always require review.
+8. Check equations and inline mathematics because pronunciation is handled by a later milestone.
+9. Search for extraction artifacts such as raw LaTeX commands, unresolved references, joined words, broken punctuation, or image placeholders.
+10. Approve each omission explicitly or correct the source and rerun ingestion.
+
+Pandoc does not expose reliable LaTeX line positions in its JSON AST.
+LaTeX blocks therefore retain a source path without fabricated line numbers, while PDF blocks retain 1-based page numbers.
+Treat the extraction as approved only when its reading order, structure, omissions, and warnings are understood and acceptable.
+
 Committed C2 fixtures and their reviewed golden outputs live under `tests/fixtures/`.
 Run the ingestion integration checks without model downloads:
 
