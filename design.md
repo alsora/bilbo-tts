@@ -54,7 +54,15 @@ flowchart LR
 - `GenerationRecord`: engine/model revision, voice/reference hash, inference parameters, seed, output checksum, duration, and retry number.
 - `VerificationRecord`: transcript, WER, CER, alignment edits, duration/speaking-rate checks, pass/fail reasons, and review status.
 
-A chunk cache key should hash the spoken text, normalization version, model revision, voice reference, and synthesis settings. Merely skipping an existing filename is unsafe after a lexicon or model change.
+Persistent manifests use explicit schema identifiers such as `book-document/v1` and reject unknown fields.
+Canonical JSON is UTF-8 with sorted keys, compact separators, preserved Unicode, and non-finite numbers rejected.
+Each stored artifact is wrapped in an `artifact-envelope/v1` record containing the payload checksum and exact upstream artifact references.
+Artifact reads validate the envelope, payload checksum, requested contract, and current upstream checksums before returning data.
+Artifact replacement uses a temporary file, file synchronization, and atomic rename within the owning `work/<book-id>/` workspace.
+
+A chunk cache key hashes the spoken text, normalization version, lexicon checksum, model revision, voice identity and reference checksum, and synthesis settings.
+Presentation metadata such as title, author, narrator, subtitle, and cover does not contribute to the synthesis cache key.
+Merely skipping an existing filename is unsafe after a lexicon or model change.
 
 ## Components and proposed layout
 

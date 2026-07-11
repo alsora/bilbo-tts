@@ -39,3 +39,14 @@ Inspect the active environment without downloading models:
 Model-specific environments are named `chatterbox`, `kokoro`, and `asr`.
 
 Their dependencies will be added at the model qualification milestone.
+
+## Book configuration and artifacts
+
+Each book uses a strict `books/<book-id>/book.yaml` configuration with schema version `book-config/v1`.
+The configuration records the source, presentation metadata, normalization and lexicon versions, synthesis identity and settings, and assembly parameters.
+Paths in book configuration must be normalized relative paths and unknown or incompatible fields are rejected.
+
+Derived data belongs under the ignored `work/<book-id>/` workspace.
+Persistent manifests use versioned Pydantic contracts and deterministic canonical JSON.
+Artifacts include payload checksums and exact upstream references, and downstream reads fail when stored data is corrupt, incompatible, missing, or stale.
+Synthesis cache keys include every audio-affecting input while excluding presentation-only metadata.
