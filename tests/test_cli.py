@@ -39,9 +39,7 @@ def _report(*, healthy: bool = True) -> EnvironmentReport:
             "models": "/project/work/cache/models",
         },
         "acceleration": {
-            "metal_capable": True,
             "mlx_installed": False,
-            "torch_installed": False,
         },
     }
 
@@ -54,7 +52,7 @@ def test_doctor_prints_readable_report(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0
     assert "Status: healthy" in result.stdout
     assert "ffmpeg: /project/.pixi/envs/default/bin/ffmpeg" in result.stdout
-    assert "metal_capable: True" in result.stdout
+    assert "mlx_installed: False" in result.stdout
 
 
 def test_doctor_prints_json(monkeypatch: pytest.MonkeyPatch) -> None:

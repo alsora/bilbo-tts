@@ -87,8 +87,6 @@ def collect_environment(
             ),
         },
         "acceleration": {
-            "metal_capable": is_apple_silicon,
             "mlx_installed": _module_available("mlx"),
-            "torch_installed": _module_available("torch"),
         },
     }

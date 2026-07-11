@@ -54,22 +54,12 @@ typecheck = "mypy src tests"
 test = "pytest"
 check = { depends-on = ["format-check", "lint", "typecheck", "test"] }
 
-[tool.pixi.feature.chatterbox.activation.env]
-BILBO_TTS_BACKEND = "chatterbox"
-
-[tool.pixi.feature.kokoro.activation.env]
-BILBO_TTS_BACKEND = "kokoro"
-
-[tool.pixi.feature.asr.activation.env]
-BILBO_ASR_BACKEND = "mlx-whisper"
-
 [tool.pixi.environments]
 default = ["base", "dev"]
 base = ["base"]
-dev = ["base", "dev"]
-chatterbox = ["base", "chatterbox"]
-kokoro = ["base", "kokoro"]
-asr = ["base", "asr"]
+chatterbox = ["base"]
+kokoro = ["base"]
+asr = ["base"]
 
 [tool.ruff]
 line-length = 100

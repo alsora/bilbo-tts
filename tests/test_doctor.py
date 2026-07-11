@@ -45,9 +45,7 @@ def test_collect_environment_reports_project_managed_tools(
     assert report["environment"]["python_managed"] is True
     assert report["platform"]["apple_silicon"] is True
     assert report["acceleration"] == {
-        "metal_capable": True,
         "mlx_installed": True,
-        "torch_installed": False,
     }
     assert report["caches"]["models"] == str(tmp_path / "work/cache/models")
 

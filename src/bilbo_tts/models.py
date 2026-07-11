@@ -391,19 +391,6 @@ class VerificationManifest(ContractModel):
         return records
 
 
-Manifest = (
-    BookDocument | NormalizedDocument | ChunkManifest | GenerationManifest | VerificationManifest
-)
-
-MANIFEST_TYPES: dict[str, type[Manifest]] = {
-    "book-document/v1": BookDocument,
-    "normalized-document/v1": NormalizedDocument,
-    "chunk-manifest/v1": ChunkManifest,
-    "generation-manifest/v1": GenerationManifest,
-    "verification-manifest/v1": VerificationManifest,
-}
-
-
 def _require_unique(values: Iterable[str], label: str) -> None:
     materialized = list(values)
     if len(materialized) != len(set(materialized)):

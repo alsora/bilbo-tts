@@ -18,7 +18,7 @@ Define separate, composable Pixi environments:
 - `chatterbox`: the base project plus Chatterbox MLX/MPS dependencies.
 - `kokoro`: the base project plus Kokoro MLX dependencies.
 - `asr`: the base project plus MLX-Whisper dependencies.
-- `dev`: test, linting, formatting, and type-checking tools.
+- `default`: the base project plus test, linting, formatting, and type-checking tools.
 
 Keeping inference backends separate reduces dependency conflicts. Synthesis and verification should also execute as separate processes so the TTS and ASR models are never resident in unified memory simultaneously.
 
