@@ -19,6 +19,11 @@ from bilbo_tts.normalization import (
     NormalizationError,
     normalize_book,
 )
+from bilbo_tts.review_service import (
+    ReviewError,
+    write_chunk_review,
+    write_extraction_review,
+)
 from bilbo_tts.serialization import canonical_json_bytes
 from bilbo_tts.stages import StageError
 
@@ -30,6 +35,10 @@ ConfigArgument = Annotated[Path, typer.Argument(help="Path to books/<book-id>/bo
 ProjectRootOption = Annotated[
     Path,
     typer.Option("--project-root", help="Project root containing books/ and work/."),
+]
+ChapterOption = Annotated[
+    str,
+    typer.Option("--chapter", help="Stable chapter identifier to review."),
 ]
 
 
@@ -142,5 +151,47 @@ def chunk(
         StageError,
     ) as error:
         _fail_stage("chunk-summary/v1", error)
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+
+
+@app.command("review-extraction")
+def review_extraction(
+    config: ConfigArgument,
+    chapter: ChapterOption,
+    project_root: ProjectRootOption = Path("."),
+) -> None:
+    """Write a complete extraction report for one chapter."""
+
+    try:
+        summary = write_extraction_review(config, project_root, chapter)
+    except (
+        ArtifactError,
+        ConfigurationError,
+        ReviewError,
+        StageError,
+    ) as error:
+        _fail_stage("extraction-review-summary/v1", error)
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+
+
+@app.command("review-chunking")
+def review_chunking(
+    config: ConfigArgument,
+    chapter: ChapterOption,
+    project_root: ProjectRootOption = Path("."),
+) -> None:
+    """Write a complete chunking report for one chapter."""
+
+    try:
+        summary = write_chunk_review(config, project_root, chapter)
+    except (
+        ArtifactError,
+        ConfigurationError,
+        ReviewError,
+        StageError,
+    ) as error:
+        _fail_stage("chunk-review-summary/v1", error)
 
     typer.echo(canonical_json_bytes(summary).decode("utf-8"))

@@ -12,6 +12,7 @@ from bilbo_tts.doctor import EnvironmentReport
 from bilbo_tts.ingest import IngestionError, IngestSummary
 from bilbo_tts.models import SourceFormat
 from bilbo_tts.normalization import NormalizationError, NormalizeSummary
+from bilbo_tts.review_service import ChunkReviewSummary, ExtractionReviewSummary
 
 runner = CliRunner()
 
@@ -172,6 +173,57 @@ def test_chunk_prints_machine_readable_summary(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(cli, "chunk_book", lambda _config, _root: summary)
 
     result = runner.invoke(cli.app, ["chunk", "books/book/book.yaml"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+
+
+def test_review_extraction_prints_machine_readable_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summary = ExtractionReviewSummary(
+        book_id="book",
+        chapter_id="chapter-1",
+        report_path="reports/review/chapter-1-extraction.md",
+        report_sha256="a" * 64,
+        block_count=2,
+    )
+    monkeypatch.setattr(
+        cli,
+        "write_extraction_review",
+        lambda _config, _root, _chapter: summary,
+    )
+
+    result = runner.invoke(
+        cli.app,
+        ["review-extraction", "books/book/book.yaml", "--chapter", "chapter-1"],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+
+
+def test_review_chunking_prints_machine_readable_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summary = ChunkReviewSummary(
+        book_id="book",
+        chapter_id="chapter-1",
+        report_path="reports/review/chapter-1-chunking.md",
+        report_sha256="a" * 64,
+        block_count=2,
+        chunk_count=3,
+    )
+    monkeypatch.setattr(
+        cli,
+        "write_chunk_review",
+        lambda _config, _root, _chapter: summary,
+    )
+
+    result = runner.invoke(
+        cli.app,
+        ["review-chunking", "books/book/book.yaml", "--chapter", "chapter-1"],
+    )
 
     assert result.exit_code == 0
     assert json.loads(result.stdout) == summary.model_dump(mode="json")

@@ -216,8 +216,17 @@ Rerunning unchanged input produces byte-identical files and checksums.
 ### 4. Review extraction
 
 Open `work/my-book/reports/extraction.md` before running any downstream stage.
-The first section summarizes the source checksum, chapter count, block count, warnings, and exclusions.
-The rest of the report lists every extracted chapter and block in reading order.
+The report contains a chapter outline, warning and exclusion counts, and the full text of blocks with warnings or non-paragraph structure.
+The canonical `book-document.json` retains every extracted block.
+
+Generate the complete reading-order report for the representative chapter:
+
+```shell
+.tools/bin/pixi run bilbo review-extraction books/my-book/book.yaml \
+  --chapter chapter-0002
+```
+
+The command writes `work/my-book/reports/review/chapter-0002-extraction.md`.
 
 Use this review checklist:
 
@@ -263,11 +272,20 @@ Unsupported mathematical notation remains visible and produces an `unresolved-ma
 `chunk` validates the normalized artifact and its upstream book artifact.
 It writes `work/my-book/manifests/chunk-manifest.json` and `work/my-book/reports/chunking.md`.
 The manifest retains every stable source-derived identifier, character count, source mapping, and pause value.
-The review report groups split blocks by chapter and omits ordinary blocks that produce only one chunk.
+The full-book review report contains per-chapter metrics, forced intra-sentence split contexts, and ordering, limit, or pause anomalies.
+Ordinary sentence boundaries and complete chunk text remain only in the manifest and focused chapter reports.
 A sentence longer than `max_characters` splits first at punctuation and then at whitespace.
 A single word longer than the configured limit fails with an actionable error rather than violating the limit.
 
-To complete checkpoint C3, review one full chapter in both reports.
+Generate the complete chunk and pause report for the representative chapter:
+
+```shell
+.tools/bin/pixi run bilbo review-chunking books/my-book/book.yaml \
+  --chapter chapter-0002
+```
+
+The command writes `work/my-book/reports/review/chapter-0002-chunking.md`.
+To complete checkpoint C3, review the focused extraction and chunking reports together with the compact normalization report.
 Resolve or explicitly accept every warning, sample every transformation category, confirm each source block maps to chunks in order, and inspect the smallest and largest chunks.
 Changing the source or lexicons makes downstream artifacts stale, so rerun `normalize` and then `chunk`.
 Unchanged reruns are byte-identical.

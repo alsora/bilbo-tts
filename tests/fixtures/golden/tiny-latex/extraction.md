@@ -7,33 +7,37 @@
 - Warnings: 3
 - Exclusions: 1
 
-## Warnings
+## Document warnings
 
 - latex-source-lines-unavailable: Pandoc preserves the source path but not line ranges
-- `block-000009`: table-linearized: verify row and column reading order
-- `block-000010`: equation-requires-review: mathematical speech is not normalized yet
 
-## Exclusions
+## Block warnings by reason
 
-- `reference-section` at `source/main.tex`: Reference section excluded from narration: Bibliografia
+- `equation-requires-review: mathematical speech is not normalized yet`: 1 occurrence
+- `table-linearized: verify row and column reading order`: 1 occurrence
 
-## Extracted chapters
+## Exclusions by reason
 
-### 1. Front matter
+### `reference-section` — 1 occurrence
 
-#### `block-000001` — paragraph — `source/main.tex`
+- `source/main.tex`: Reference section excluded from narration: Bibliografia
 
-Questa prefazione precede il primo capitolo.
+
+## Chapter outline
+
+- `chapter-0001` — 1. Front matter: 1 block (`block-000001`–`block-000001`); paragraph: 1; 0 warnings
+
+- `chapter-0002` — 2. Fondamenti: 10 blocks (`block-000002`–`block-000011`); caption: 1, equation: 1, footnote: 1, heading: 1, list_item: 3, paragraph: 1, quotation: 1, table: 1; 2 warnings
+
+- `chapter-0003` — 3. Applicazioni: 4 blocks (`block-000012`–`block-000015`); heading: 2, paragraph: 2; 0 warnings
+
+## Items requiring review
 
 ### 2. Fondamenti
 
 #### `block-000002` — heading — `source/main.tex`
 
 Fondamenti
-
-#### `block-000003` — paragraph — `source/main.tex`
-
-Il primo paragrafo contiene una nota.
 
 #### `block-000004` — footnote — `source/main.tex`
 
@@ -57,9 +61,13 @@ Una citazione conserva il proprio ruolo.
 
 #### `block-000009` — table — `source/main.tex`
 
+- Warnings: `table-linearized: verify row and column reading order`
+
 Rendimenti annuali Anno Rendimento 2025 5%
 
 #### `block-000010` — equation — `source/main.tex`
+
+- Warnings: `equation-requires-review: mathematical speech is not normalized yet`
 
 r = \frac{utile}{capitale}
 
@@ -73,14 +81,6 @@ Andamento del capitale
 
 Applicazioni
 
-#### `block-000013` — paragraph — `source/main.tex`
-
-Il capitolo incluso verifica l’ordine dei file.
-
 #### `block-000014` — heading — `source/main.tex`
 
 Dettaglio
-
-#### `block-000015` — paragraph — `source/main.tex`
-
-Un ultimo paragrafo chiude il piccolo libro.

@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from bilbo_tts.ingest.common import IngestionError
-from bilbo_tts.ingest.service import IngestSummary, ingest_book
+from bilbo_tts.ingest.service import REPORT_PATH, IngestSummary, ingest_book
 
 FIXTURE_BOOK = Path(__file__).parent / "fixtures" / "books" / "tiny-latex"
 
@@ -35,6 +35,22 @@ def test_included_latex_change_invalidates_source_and_artifact_hashes(tmp_path: 
     assert first.source_sha256 != second.source_sha256
     assert first.document_sha256 != second.document_sha256
     assert second.block_count == first.block_count + 1
+
+
+def test_extraction_report_is_an_outline_with_exception_details(tmp_path: Path) -> None:
+    project_root = tmp_path / "project"
+    config = _copy_latex_book(project_root)
+
+    ingest_book(config, project_root)
+
+    report = (project_root / "work" / "tiny-latex" / REPORT_PATH).read_text(encoding="utf-8")
+    assert "## Chapter outline" in report
+    assert "`chapter-0002` — 2. Fondamenti" in report
+    assert "## Block warnings by reason" in report
+    assert "`table-linearized: verify row and column reading order`: 1 occurrence" in report
+    assert "## Items requiring review" in report
+    assert "Rendimenti annuali Anno Rendimento 2025 5%" in report
+    assert "Questa prefazione precede il primo capitolo." not in report
 
 
 def test_config_and_source_paths_must_stay_in_owned_directories(tmp_path: Path) -> None:

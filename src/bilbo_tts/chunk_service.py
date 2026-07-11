@@ -80,67 +80,181 @@ def chunk_book(config_path: Path, project_root: Path) -> ChunkSummary:
 
 
 def render_chunk_report(manifest: ChunkManifest, max_characters: int) -> str:
-    """Render a compact human-review view of meaningful chunk boundaries."""
+    """Render chapter metrics, forced sentence splits, and invariant failures."""
 
     lengths = sorted(len(chunk.spoken_text) for chunk in manifest.chunks)
     chunks_by_block: dict[str, list[ChunkRecord]] = {}
+    chunks_by_chapter: dict[str, list[ChunkRecord]] = {}
     for chunk in manifest.chunks:
         chunks_by_block.setdefault(chunk.paragraph_id, []).append(chunk)
-    split_blocks = [chunks for chunks in chunks_by_block.values() if len(chunks) > 1]
-    split_blocks_by_chapter: dict[str, list[list[ChunkRecord]]] = {}
-    for chunks in split_blocks:
-        split_blocks_by_chapter.setdefault(chunks[0].chapter_id, []).append(chunks)
-    outliers = [chunk for chunk in manifest.chunks if len(chunk.spoken_text) > max_characters]
+        chunks_by_chapter.setdefault(chunk.chapter_id, []).append(chunk)
+    forced_splits_by_chapter = {
+        chapter_id: _forced_sentence_splits(chunks)
+        for chapter_id, chunks in chunks_by_chapter.items()
+    }
+    forced_split_count = sum(
+        _forced_split_count(groups) for groups in forced_splits_by_chapter.values()
+    )
+    chunks_at_limit = sum(len(chunk.spoken_text) == max_characters for chunk in manifest.chunks)
+    anomalies = _chunk_anomalies(manifest, max_characters)
     lines = [
         f"# Chunking report: {manifest.book_id}",
         "",
         f"- Character limit: {max_characters}",
+        f"- Chapters: {len(chunks_by_chapter)}",
         f"- Chunks: {len(manifest.chunks)}",
         f"- Source blocks: {len(chunks_by_block)}",
-        f"- Split blocks: {len(split_blocks)}",
-        f"- Unsplit blocks omitted: {len(chunks_by_block) - len(split_blocks)}",
+        f"- Forced intra-sentence splits: {forced_split_count}",
+        f"- Chunks exactly at limit: {chunks_at_limit}",
         f"- Minimum characters: {min(lengths, default=0)}",
         f"- Median characters: {_percentile(lengths, 50)}",
         f"- 95th percentile characters: {_percentile(lengths, 95)}",
         f"- Maximum characters: {max(lengths, default=0)}",
         "",
-        "## Limit outliers",
+        "## Chapter summary",
         "",
     ]
-    if outliers:
-        lines.extend(
-            f"- `{chunk.chunk_id}`: {len(chunk.spoken_text)} characters" for chunk in outliers
+    for chapter_id, chunks in chunks_by_chapter.items():
+        chapter_lengths = [len(chunk.spoken_text) for chunk in chunks]
+        chapter_forced_split_count = _forced_split_count(forced_splits_by_chapter[chapter_id])
+        lines.append(
+            f"- `{chapter_id}`: "
+            f"{_count_label(len({chunk.paragraph_id for chunk in chunks}), 'block')}; "
+            f"{_count_label(len({chunk.sentence_id for chunk in chunks}), 'sentence')}; "
+            f"{_count_label(len(chunks), 'chunk')}; "
+            f"{_count_label(chapter_forced_split_count, 'forced split')}; "
+            f"maximum {max(chapter_lengths)} characters"
         )
-    else:
+    if not chunks_by_chapter:
         lines.append("- None.")
-    lines.extend(["", "## Split blocks", ""])
-    if not split_blocks_by_chapter:
+
+    lines.extend(["", "## Forced intra-sentence splits", ""])
+    if not forced_split_count:
         lines.extend(["- None.", ""])
-    for chapter_id, chapter_blocks in split_blocks_by_chapter.items():
+    for chapter_id, sentence_groups in forced_splits_by_chapter.items():
+        if not sentence_groups:
+            continue
         lines.extend([f"### `{chapter_id}`", ""])
-        for chunks in chapter_blocks:
-            sentence_count = len({chunk.sentence_id for chunk in chunks})
-            lines.extend(
-                [
-                    f"#### `{chunks[0].paragraph_id}` — {len(chunks)} chunks from "
-                    f"{sentence_count} sentence{'s' if sentence_count != 1 else ''}",
-                    "",
-                ]
-            )
-            for chunk in chunks:
-                break_kind = chunk.pause.break_before.value
-                if break_kind == "none":
-                    break_kind = "none (continuation)"
+        for chunks in sentence_groups:
+            lengths_label = " + ".join(str(len(chunk.spoken_text)) for chunk in chunks)
+            for boundary, (left, right) in enumerate(
+                zip(chunks, chunks[1:], strict=False),
+                start=1,
+            ):
+                lines.append(
+                    f"- `{chunks[0].sentence_id}` boundary {boundary} "
+                    f"(`{chunks[0].paragraph_id}`; {lengths_label} characters; "
+                    f"{right.pause.break_before.value}, {right.pause.duration_ms} ms)"
+                )
                 lines.extend(
                     [
-                        f"- `{chunk.chunk_id}` — {len(chunk.spoken_text)} characters; "
-                        f"{break_kind}, {chunk.pause.duration_ms} ms",
                         "",
-                        f"  {chunk.spoken_text}",
+                        f"  {_split_context(left.spoken_text, right.spoken_text)}",
                         "",
                     ]
                 )
+
+    lines.extend(["## Ordering, limit, and pause anomalies", ""])
+    if anomalies:
+        lines.extend(f"- {anomaly}" for anomaly in anomalies)
+    else:
+        lines.append("- None.")
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_chunk_chapter_report(manifest: ChunkManifest, chapter_id: str) -> str:
+    """Render every chunk and pause decision in one selected chapter."""
+
+    chapter_chunks = [chunk for chunk in manifest.chunks if chunk.chapter_id == chapter_id]
+    chunks_by_block: dict[str, list[ChunkRecord]] = {}
+    for chunk in chapter_chunks:
+        chunks_by_block.setdefault(chunk.paragraph_id, []).append(chunk)
+    lengths = [len(chunk.spoken_text) for chunk in chapter_chunks]
+    lines = [
+        f"# Chunking chapter review: {chapter_id}",
+        "",
+        f"- Book: `{manifest.book_id}`",
+        f"- Source blocks: {len(chunks_by_block)}",
+        f"- Chunks: {len(chapter_chunks)}",
+        f"- Maximum characters: {max(lengths, default=0)}",
+        "",
+    ]
+    for block_id, chunks in chunks_by_block.items():
+        lines.extend(
+            [
+                f"## `{block_id}` — {len(chunks)} chunk{'s' if len(chunks) != 1 else ''}",
+                "",
+            ]
+        )
+        for chunk in chunks:
+            break_kind = chunk.pause.break_before.value
+            if break_kind == "none":
+                break_kind = "none (continuation)"
+            lines.extend(
+                [
+                    f"### `{chunk.chunk_id}`",
+                    "",
+                    f"- Characters: {len(chunk.spoken_text)}",
+                    f"- Break before: `{break_kind}` ({chunk.pause.duration_ms} ms)",
+                    "",
+                    chunk.spoken_text,
+                    "",
+                ]
+            )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _forced_sentence_splits(chunks: list[ChunkRecord]) -> list[list[ChunkRecord]]:
+    chunks_by_sentence: dict[str, list[ChunkRecord]] = {}
+    for chunk in chunks:
+        chunks_by_sentence.setdefault(chunk.sentence_id, []).append(chunk)
+    return [
+        sentence_chunks
+        for sentence_chunks in chunks_by_sentence.values()
+        if len(sentence_chunks) > 1
+    ]
+
+
+def _forced_split_count(sentence_groups: list[list[ChunkRecord]]) -> int:
+    return sum(len(chunks) - 1 for chunks in sentence_groups)
+
+
+def _chunk_anomalies(manifest: ChunkManifest, max_characters: int) -> list[str]:
+    anomalies: list[str] = []
+    previous: ChunkRecord | None = None
+    for expected_sequence, chunk in enumerate(manifest.chunks):
+        if chunk.sequence != expected_sequence:
+            anomalies.append(
+                f"`{chunk.chunk_id}` has sequence {chunk.sequence}, expected {expected_sequence}"
+            )
+        if len(chunk.spoken_text) > max_characters:
+            anomalies.append(
+                f"`{chunk.chunk_id}` has {len(chunk.spoken_text)} characters, "
+                f"exceeding {max_characters}"
+            )
+        expected_break = "chapter"
+        if previous is not None and previous.chapter_id == chunk.chapter_id:
+            if previous.paragraph_id != chunk.paragraph_id:
+                expected_break = "paragraph"
+            elif previous.sentence_id != chunk.sentence_id:
+                expected_break = "sentence"
+            else:
+                expected_break = "none"
+        if chunk.pause.break_before.value != expected_break:
+            anomalies.append(
+                f"`{chunk.chunk_id}` uses `{chunk.pause.break_before.value}` break, "
+                f"expected `{expected_break}`"
+            )
+        previous = chunk
+    return anomalies
+
+
+def _split_context(left: str, right: str, context_characters: int = 80) -> str:
+    left_context = left[-context_characters:]
+    right_context = right[:context_characters]
+    left_prefix = "…" if len(left) > context_characters else ""
+    right_suffix = "…" if len(right) > context_characters else ""
+    return f"{left_prefix}{left_context} ⟦SPLIT⟧ {right_context}{right_suffix}"
 
 
 def _percentile(values: list[int], percentile: int) -> int:
@@ -148,3 +262,7 @@ def _percentile(values: list[int], percentile: int) -> int:
         return 0
     index = ((len(values) - 1) * percentile + 99) // 100
     return values[index]
+
+
+def _count_label(count: int, noun: str) -> str:
+    return f"{count} {noun}{'s' if count != 1 else ''}"

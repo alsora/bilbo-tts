@@ -93,7 +93,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 
 ## Components and proposed layout
 
-- [`src/bilbo_tts/cli.py`](src/bilbo_tts/cli.py): commands `ingest`, `normalize`, `chunk`, `synthesize`, `verify`, `assemble`, and an idempotent `run` command.
+- [`src/bilbo_tts/cli.py`](src/bilbo_tts/cli.py): pipeline commands `ingest`, `normalize`, `chunk`, `synthesize`, `verify`, `assemble`, and an idempotent `run`, plus chapter-scoped `review-extraction` and `review-chunking` commands.
 - [`src/bilbo_tts/models.py`](src/bilbo_tts/models.py): Pydantic definitions for all manifests and sidecars.
 - [`src/bilbo_tts/ingest/`](src/bilbo_tts/ingest/): Pandoc AST adapter for LaTeX; PyMuPDF4LLM adapter for born-digital PDF; reject or explicitly route scanned PDFs to OCR.
 - [`src/bilbo_tts/normalization/`](src/bilbo_tts/normalization/): deterministic, ordered Italian rules for Unicode cleanup, dehyphenation, percentages, decimals, ratios, currencies, ordinals, symbols, abbreviations, and lexicon replacement using `num2words(lang="it")`.

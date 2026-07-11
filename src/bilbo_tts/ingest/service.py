@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 from typing import Literal, Self
 
@@ -13,8 +14,11 @@ from bilbo_tts.ingest.common import IngestionError, MappedContent, assemble_docu
 from bilbo_tts.ingest.latex import extract_latex
 from bilbo_tts.ingest.pdf import ScannedPdfError, extract_pdf
 from bilbo_tts.models import (
+    BlockKind,
     BookDocument,
+    ChapterDocument,
     ContractModel,
+    ExclusionRecord,
     NonEmptyText,
     Sha256,
     SourceFormat,
@@ -104,14 +108,26 @@ def ingest_book(config_path: Path, project_root: Path) -> IngestSummary:
 
 
 def render_extraction_report(document: BookDocument) -> str:
-    """Render all extracted text and review signals in source order."""
+    """Render a compact full-book outline and exceptional review items."""
 
     block_count = sum(len(chapter.blocks) for chapter in document.chapters)
-    block_warnings = [
-        (block.block_id, warning)
+    block_warning_counts = Counter(
+        warning
         for chapter in document.chapters
         for block in chapter.blocks
         for warning in block.warnings
+    )
+    warning_count = len(document.warnings) + sum(block_warning_counts.values())
+    review_chapters = [
+        (
+            chapter,
+            [
+                block
+                for block in chapter.blocks
+                if block.kind is not BlockKind.PARAGRAPH or block.warnings
+            ],
+        )
+        for chapter in document.chapters
     ]
     lines = [
         f"# Extraction report: {document.book_id}",
@@ -120,46 +136,132 @@ def render_extraction_report(document: BookDocument) -> str:
         f"- Source SHA-256: `{document.source_sha256}`",
         f"- Chapters: {len(document.chapters)}",
         f"- Blocks: {block_count}",
-        f"- Warnings: {len(document.warnings) + len(block_warnings)}",
+        f"- Warnings: {warning_count}",
         f"- Exclusions: {len(document.exclusions)}",
         "",
-        "## Warnings",
+        "## Document warnings",
         "",
     ]
-    if not document.warnings and not block_warnings:
+    if not document.warnings:
         lines.append("- None.")
     else:
         lines.extend(f"- {warning}" for warning in document.warnings)
-        lines.extend(f"- `{block_id}`: {warning}" for block_id, warning in block_warnings)
 
-    lines.extend(["", "## Exclusions", ""])
-    if not document.exclusions:
+    lines.extend(["", "## Block warnings by reason", ""])
+    if block_warning_counts:
+        lines.extend(
+            f"- `{warning}`: {count} occurrence{'s' if count != 1 else ''}"
+            for warning, count in sorted(block_warning_counts.items())
+        )
+    else:
+        lines.append("- None.")
+
+    lines.extend(["", "## Exclusions by reason", ""])
+    exclusions_by_reason = _group_exclusions(document)
+    if not exclusions_by_reason:
         lines.append("- None.")
     else:
-        lines.extend(
-            f"- `{item.reason_code}` at {_format_source(item.source)}: {item.description}"
-            for item in document.exclusions
-        )
+        for reason_code, exclusions in exclusions_by_reason.items():
+            lines.extend(
+                [
+                    f"### `{reason_code}` — {len(exclusions)} "
+                    f"occurrence{'s' if len(exclusions) != 1 else ''}",
+                    "",
+                ]
+            )
+            lines.extend(
+                f"- {_format_source(item.source)}: {item.description}" for item in exclusions
+            )
+            lines.append("")
 
-    lines.extend(["", "## Extracted chapters", ""])
+    lines.extend(["", "## Chapter outline", ""])
     for chapter in document.chapters:
+        kind_counts = Counter(block.kind.value for block in chapter.blocks)
+        block_range = (
+            f"`{chapter.blocks[0].block_id}`–`{chapter.blocks[-1].block_id}`"
+            if chapter.blocks
+            else "no blocks"
+        )
+        chapter_warning_count = sum(len(block.warnings) for block in chapter.blocks)
         lines.extend(
             [
-                f"### {chapter.order + 1}. {chapter.title}",
+                f"- `{chapter.chapter_id}` — {chapter.order + 1}. {chapter.title}: "
+                f"{_count_label(len(chapter.blocks), 'block')} ({block_range}); "
+                f"{_format_counts(kind_counts)}; "
+                f"{_count_label(chapter_warning_count, 'warning')}",
                 "",
             ]
         )
-        for block in chapter.blocks:
+
+    lines.extend(["## Items requiring review", ""])
+    if not any(blocks for _, blocks in review_chapters):
+        lines.extend(["- None.", ""])
+    for chapter, blocks in review_chapters:
+        if not blocks:
+            continue
+        lines.extend([f"### {chapter.order + 1}. {chapter.title}", ""])
+        for block in blocks:
             lines.extend(
                 [
                     f"#### `{block.block_id}` — {block.kind.value} — "
                     f"{_format_source(block.source)}",
                     "",
-                    block.display_text,
-                    "",
                 ]
             )
+            if block.warnings:
+                lines.append(
+                    "- Warnings: " + ", ".join(f"`{warning}`" for warning in block.warnings)
+                )
+                lines.append("")
+            lines.extend([block.display_text, ""])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_extraction_chapter_report(
+    document: BookDocument,
+    chapter: ChapterDocument,
+) -> str:
+    """Render every extracted block in one selected chapter."""
+
+    warning_count = sum(len(block.warnings) for block in chapter.blocks)
+    lines = [
+        f"# Extraction chapter review: {chapter.title}",
+        "",
+        f"- Book: `{document.book_id}`",
+        f"- Chapter: `{chapter.chapter_id}`",
+        f"- Blocks: {len(chapter.blocks)}",
+        f"- Warnings: {warning_count}",
+        "",
+    ]
+    for block in chapter.blocks:
+        lines.extend(
+            [
+                f"## `{block.block_id}` — {block.kind.value} — {_format_source(block.source)}",
+                "",
+            ]
+        )
+        if block.warnings:
+            lines.append("- Warnings: " + ", ".join(f"`{warning}`" for warning in block.warnings))
+            lines.append("")
+        lines.extend([block.display_text, ""])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _group_exclusions(document: BookDocument) -> dict[str, list[ExclusionRecord]]:
+    grouped: dict[str, list[ExclusionRecord]] = {}
+    for exclusion in document.exclusions:
+        grouped.setdefault(exclusion.reason_code, []).append(exclusion)
+    return grouped
+
+
+def _format_counts(counts: Counter[str]) -> str:
+    if not counts:
+        return "no block kinds"
+    return ", ".join(f"{kind}: {count}" for kind, count in sorted(counts.items()))
+
+
+def _count_label(count: int, noun: str) -> str:
+    return f"{count} {noun}{'s' if count != 1 else ''}"
 
 
 def _resolve_config(config_path: Path, project_root: Path) -> Path:
