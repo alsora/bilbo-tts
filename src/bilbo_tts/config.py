@@ -111,6 +111,12 @@ class NormalizationConfig(ContractModel):
         return lexicons
 
 
+class ChunkingConfig(ContractModel):
+    """Text limits applied before model qualification."""
+
+    max_characters: int = Field(gt=0)
+
+
 class VoiceConfig(ContractModel):
     """Configured voice and optional owned reference audio."""
 
@@ -148,9 +154,9 @@ class SynthesisConfig(ContractModel):
 class PauseConfig(ContractModel):
     """Pause durations used during final assembly."""
 
-    sentence_ms: int = Field(default=250, ge=0)
-    paragraph_ms: int = Field(default=600, ge=0)
-    chapter_ms: int = Field(default=1500, ge=0)
+    sentence_ms: int = Field(default=250, gt=0)
+    paragraph_ms: int = Field(default=600, gt=0)
+    chapter_ms: int = Field(default=1500, gt=0)
 
 
 class AssemblyConfig(ContractModel):
@@ -170,6 +176,7 @@ class BookConfig(ContractModel):
     input: InputConfig
     metadata: PresentationMetadata
     normalization: NormalizationConfig
+    chunking: ChunkingConfig
     synthesis: SynthesisConfig
     assembly: AssemblyConfig = AssemblyConfig()
 

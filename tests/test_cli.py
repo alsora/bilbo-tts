@@ -6,9 +6,12 @@ import pytest
 from typer.testing import CliRunner
 
 from bilbo_tts import cli
+from bilbo_tts.chunk_service import ChunkSummary
+from bilbo_tts.chunking import ChunkingError
 from bilbo_tts.doctor import EnvironmentReport
 from bilbo_tts.ingest import IngestionError, IngestSummary
 from bilbo_tts.models import SourceFormat
+from bilbo_tts.normalization import NormalizationError, NormalizeSummary
 
 runner = CliRunner()
 
@@ -113,3 +116,78 @@ def test_ingest_prints_json_error_and_exits_nonzero(monkeypatch: pytest.MonkeyPa
 
     assert result.exit_code == 1
     assert json.loads(result.stdout)["error"] == "source is unusable"
+
+
+def test_normalize_prints_machine_readable_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = NormalizeSummary(
+        book_id="book",
+        document_sha256="a" * 64,
+        normalized_path="manifests/normalized-document.json",
+        normalized_sha256="b" * 64,
+        report_path="reports/normalization.md",
+        report_sha256="c" * 64,
+        block_count=2,
+        transformation_count=1,
+        lexicon_application_count=1,
+        warning_count=0,
+    )
+    monkeypatch.setattr(cli, "normalize_book", lambda _config, _root: summary)
+
+    result = runner.invoke(cli.app, ["normalize", "books/book/book.yaml"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+
+
+def test_normalize_prints_json_error_and_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail(_config: object, _root: object) -> None:
+        raise NormalizationError("text is unusable")
+
+    monkeypatch.setattr(cli, "normalize_book", fail)
+
+    result = runner.invoke(cli.app, ["normalize", "books/book/book.yaml"])
+
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == {
+        "schema_version": "normalize-summary/v1",
+        "status": "failed",
+        "error": "text is unusable",
+    }
+
+
+def test_chunk_prints_machine_readable_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = ChunkSummary(
+        book_id="book",
+        normalized_sha256="a" * 64,
+        chunk_manifest_path="manifests/chunk-manifest.json",
+        chunk_manifest_sha256="b" * 64,
+        report_path="reports/chunking.md",
+        report_sha256="c" * 64,
+        chunk_count=3,
+        max_characters=300,
+        largest_chunk_characters=120,
+    )
+    monkeypatch.setattr(cli, "chunk_book", lambda _config, _root: summary)
+
+    result = runner.invoke(cli.app, ["chunk", "books/book/book.yaml"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+
+
+def test_chunk_prints_json_error_and_exits_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(_config: object, _root: object) -> None:
+        raise ChunkingError("chunk is unusable")
+
+    monkeypatch.setattr(cli, "chunk_book", fail)
+
+    result = runner.invoke(cli.app, ["chunk", "books/book/book.yaml"])
+
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == {
+        "schema_version": "chunk-summary/v1",
+        "status": "failed",
+        "error": "chunk is unusable",
+    }

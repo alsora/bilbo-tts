@@ -9,10 +9,17 @@ from typing import Annotated
 import typer
 
 from bilbo_tts.artifacts import ArtifactError
+from bilbo_tts.chunk_service import ChunkingError, chunk_book
 from bilbo_tts.config import ConfigurationError
 from bilbo_tts.doctor import EnvironmentReport, collect_environment
 from bilbo_tts.ingest import IngestionError, ingest_book
+from bilbo_tts.normalization import (
+    LexiconError,
+    NormalizationError,
+    normalize_book,
+)
 from bilbo_tts.serialization import canonical_json_bytes
+from bilbo_tts.stages import StageError
 
 app = typer.Typer(
     help="Build reproducible Italian audiobooks.",
@@ -92,3 +99,80 @@ def ingest(
     typer.echo(canonical_json_bytes(summary).decode("utf-8"))
     if summary.status == "failed":
         raise typer.Exit(code=1)
+
+
+@app.command()
+def normalize(
+    config: Annotated[
+        Path,
+        typer.Argument(help="Path to books/<book-id>/book.yaml."),
+    ],
+    project_root: Annotated[
+        Path,
+        typer.Option("--project-root", help="Project root containing books/ and work/."),
+    ] = Path("."),
+) -> None:
+    """Convert a stored book document into deterministic Italian speech text."""
+
+    try:
+        summary = normalize_book(config, project_root)
+    except (
+        ArtifactError,
+        ConfigurationError,
+        LexiconError,
+        NormalizationError,
+        StageError,
+    ) as error:
+        typer.echo(
+            json.dumps(
+                {
+                    "schema_version": "normalize-summary/v1",
+                    "status": "failed",
+                    "error": str(error),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+        raise typer.Exit(code=1) from error
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+
+
+@app.command()
+def chunk(
+    config: Annotated[
+        Path,
+        typer.Argument(help="Path to books/<book-id>/book.yaml."),
+    ],
+    project_root: Annotated[
+        Path,
+        typer.Option("--project-root", help="Project root containing books/ and work/."),
+    ] = Path("."),
+) -> None:
+    """Split normalized speech text into stable synthesis chunks."""
+
+    try:
+        summary = chunk_book(config, project_root)
+    except (
+        ArtifactError,
+        ChunkingError,
+        ConfigurationError,
+        StageError,
+    ) as error:
+        typer.echo(
+            json.dumps(
+                {
+                    "schema_version": "chunk-summary/v1",
+                    "status": "failed",
+                    "error": str(error),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+        raise typer.Exit(code=1) from error
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))

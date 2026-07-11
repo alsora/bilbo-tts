@@ -1,0 +1,43 @@
+schema_version: pronunciation-lexicon/v1
+lexicon_id: finance-it
+entries:
+  - entry_id: acronimo-bce
+    mode: literal
+    pattern: BCE
+    spoken: bi ci e
+    priority: 100
+    case_sensitive: true
+    word_boundaries: true
+    notes: Banca centrale europea.
+  - entry_id: acronimo-btp
+    mode: literal
+    pattern: BTP
+    spoken: bi ti pi
+    priority: 100
+    case_sensitive: true
+    word_boundaries: true
+    notes: Buono del Tesoro poliennale.
+  - entry_id: acronimo-etf
+    mode: literal
+    pattern: ETF
+    spoken: et effe
+    priority: 100
+    case_sensitive: true
+    word_boundaries: true
+    notes: Exchange-traded fund.
+  - entry_id: loanword-benchmark
+    mode: literal
+    pattern: benchmark
+    spoken: bènchmark
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: Common finance loanword.
+  - entry_id: loanword-drawdown
+    mode: literal
+    pattern: drawdown
+    spoken: dròdaun
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: Common finance loanword.

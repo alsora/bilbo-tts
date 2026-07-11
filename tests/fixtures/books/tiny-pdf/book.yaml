@@ -10,6 +10,8 @@ metadata:
 normalization:
   version: it-v1
   lexicons: []
+chunking:
+  max_characters: 160
 synthesis:
   engine: fixture
   model_revision: fixture-v1

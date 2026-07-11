@@ -39,6 +39,7 @@ def valid_config() -> dict[str, object]:
                 }
             ],
         },
+        "chunking": {"max_characters": 300},
         "synthesis": {
             "engine": "fake-engine",
             "model_revision": "revision-1",
@@ -78,6 +79,7 @@ def test_load_valid_book_config(tmp_path: Path) -> None:
 
     assert config.book_id == "finance-book"
     assert config.input.path == "source/book.tex"
+    assert config.chunking.max_characters == 300
     assert config.synthesis.voice.reference_sha256 == HASH_B
     assert BookConfig.model_validate_json(config.model_dump_json()) == config
 
