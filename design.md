@@ -69,7 +69,8 @@ Merely skipping an existing filename is unsafe after a lexicon or model change.
 LaTeX ingestion runs the pinned Pandoc executable against the configured entry point and recursively expands ordinary `\input`, `\include`, and static `\import` files below the source directory.
 Its source checksum covers the entry point and every file below that source directory so changes to included material invalidate the canonical document.
 Pandoc's JSON AST does not retain LaTeX source line positions, so C2 records the normalized relative source path without inventing line ranges.
-Inline citation commands are explicit exclusions, while appendix-reference macros retain readable generic text and emit a review warning when numbering is unavailable.
+Inline citation commands are explicit exclusions, while cross-reference commands resolve to Italian structural names and source-derived numbers.
+Missing cross-reference labels remain readable placeholders and emit an actionable warning.
 
 Born-digital PDF ingestion uses PyMuPDF4LLM page chunks with OCR disabled and records 1-based page references.
 Repeated page header and footer regions are excluded by policy and surfaced in the extraction report.
