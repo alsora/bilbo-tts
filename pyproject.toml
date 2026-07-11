@@ -19,7 +19,7 @@ packages = ["src/bilbo_tts"]
 [tool.pixi.workspace]
 name = "bilbo-tts"
 channels = ["conda-forge"]
-platforms = ["osx-arm64"]
+platforms = [{ platform = "osx-arm64", macos = "14.0" }]
 
 [tool.pixi.feature.base.dependencies]
 python = "3.11.*"
@@ -55,12 +55,21 @@ typecheck = "mypy src tests"
 test = "pytest"
 check = { depends-on = ["format-check", "lint", "typecheck", "test"] }
 
+[tool.pixi.feature.chatterbox.pypi-dependencies]
+chatterbox-tts = { git = "https://github.com/resemble-ai/chatterbox.git", rev = "65b18437192794391a0308a8f705b1e33e633948" }
+
+[tool.pixi.feature.kokoro.pypi-dependencies]
+kokoro-mlx = "==0.1.2"
+
+[tool.pixi.feature.asr.pypi-dependencies]
+mlx-whisper = "==0.4.3"
+
 [tool.pixi.environments]
 default = ["base", "dev"]
 base = ["base"]
-chatterbox = ["base"]
-kokoro = ["base"]
-asr = ["base"]
+chatterbox = ["base", "chatterbox"]
+kokoro = ["base", "kokoro"]
+asr = ["base", "asr"]
 
 [tool.ruff]
 line-length = 100
@@ -84,3 +93,6 @@ addopts = [
     "--cov-fail-under=90",
 ]
 testpaths = ["tests"]
+markers = [
+    "hardware: opt-in tests that load model weights on local Apple Silicon hardware",
+]

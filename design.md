@@ -15,7 +15,7 @@ Use [Pixi](https://pixi.sh/) as the project environment manager. It can install 
 Define separate, composable Pixi environments:
 
 - `base`: ingestion, normalization, chunking, and assembly.
-- `chatterbox`: the base project plus Chatterbox MLX/MPS dependencies.
+- `chatterbox`: the base project plus the official Chatterbox V3 PyTorch MPS dependencies.
 - `kokoro`: the base project plus Kokoro MLX dependencies.
 - `asr`: the base project plus MLX-Whisper dependencies.
 - `default`: the base project plus test, linting, formatting, and type-checking tools.
@@ -101,6 +101,8 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - [`src/bilbo_tts/chunking.py`](src/bilbo_tts/chunking.py): paragraph-first, sentence-aware splitting with an explicit character limit; preserve `break_before` rather than inserting silence into generated clips. Add model-specific phoneme limits only after C4 qualifies an engine and its counting behavior.
 - When an over-limit sentence can fit into two chunks, prefer a semicolon or colon over a comma while avoiding fragments shorter than one quarter of the configured limit; otherwise split at the latest available punctuation and then fall back to whitespace.
 - [`src/bilbo_tts/tts/`](src/bilbo_tts/tts/): a narrow engine interface plus Chatterbox and Kokoro adapters.
+- TTS engines return native-rate mono signed 16-bit little-endian PCM with exact frame-count and duration metadata.
+- Qualification remains independent of book artifacts and writes canonical evidence below `work/tts-qualification/<engine>/`.
 - [`src/bilbo_tts/asr/`](src/bilbo_tts/asr/): a narrow transcription interface with an MLX-Whisper implementation.
 - [`src/bilbo_tts/verification.py`](src/bilbo_tts/verification.py): JiWER-based scoring, repetition/truncation and duration heuristics, bounded retries, and a machine-readable review queue.
 - [`src/bilbo_tts/assembly.py`](src/bilbo_tts/assembly.py): concatenate lossless PCM with sentence/paragraph/chapter pauses, run two-pass `ffmpeg loudnorm`, create FFMETADATA chapter markers, and encode AAC only once into `.m4b`.
@@ -109,7 +111,9 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 
 ## Model and runtime strategy for a 16 GB Apple Silicon Mac
 
-- Quality candidate: Chatterbox Multilingual V3. It supports Italian and is MIT-licensed, but its Apple MLX/MPS variants use roughly 14–16 GB, so a 16 GB Mac is borderline and may swap. Keep it as the first quality trial, not a hard dependency.
+- Quality candidate: Chatterbox Multilingual V3 through the official PyTorch MPS implementation because no maintained V3 MLX port exists.
+- It supports Italian and is MIT-licensed, but it may use roughly 14–16 GB, so a 16 GB Mac is borderline and may swap.
+- Keep Chatterbox as the first quality trial, not a hard dependency.
 - Lightweight baseline/fallback: Kokoro-82M through MLX, with Apache-2.0 weights. It is fast and small, but Italian voices have reported English-like G2P/prosody issues; do not select it solely from English demos.
 - Before committing, run a fixed 20–30 excerpt bake-off containing Italian prose, percentages, ratios, currencies, abbreviations, English finance terms, long sentences, and dialogue. Record ASR metrics, generation speed, memory pressure, and blind listening preference. Store this corpus as a regression fixture.
 - Verification on macOS should use MLX-Whisper or whisper.cpp, not `faster-whisper`: CTranslate2 has no MPS path and runs CPU-only on Apple Silicon. Start with `large-v3-turbo`; make the exact ASR model configurable.

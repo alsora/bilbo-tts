@@ -1,0 +1,99 @@
+schema_version: tts-qualification-corpus/v1
+language: it
+excerpts:
+  - excerpt_id: prose-01
+    categories: [ordinary-prose]
+    spoken_text: La mattina il mercato aprì con prudenza, mentre gli investitori attendevano nuovi dati sull’economia italiana.
+    notes: Verifica un periodo narrativo ordinario con ritmo naturale.
+  - excerpt_id: prose-02
+    categories: [ordinary-prose]
+    spoken_text: Il risparmio regolare permette di affrontare gli imprevisti senza rinunciare agli obiettivi di lungo periodo.
+    notes: Verifica prosa espositiva semplice e uniforme.
+  - excerpt_id: dialogue-01
+    categories: [dialogue, typographic-punctuation]
+    spoken_text: «Hai controllato il prospetto?» chiese Marta. «Sì, ma vorrei rileggere la nota sui rischi», rispose Luca.
+    notes: Verifica dialogo, virgolette tipografiche e cambio di intonazione.
+  - excerpt_id: dialogue-02
+    categories: [dialogue, typographic-punctuation]
+    spoken_text: “Non vendere d’impulso”, disse l’analista, “perché l’orizzonte dell’investimento non è cambiato”.
+    notes: Verifica virgolette curve, apostrofi tipografici e inciso dialogico.
+  - excerpt_id: long-01
+    categories: [long-sentence]
+    spoken_text: Sebbene i rendimenti passati non garantiscano risultati futuri, un portafoglio ben diversificato, costruito con costi sostenibili e coerente con la capacità di sopportare le perdite, può ridurre il rischio che una singola decisione comprometta l’intero piano finanziario.
+    notes: Verifica respiro e prosodia in una frase lunga con subordinate.
+  - excerpt_id: percent-01
+    categories: [percentages]
+    spoken_text: Il tasso è salito da zero virgola venticinque per cento a uno virgola cinque per cento.
+    notes: Verifica la lettura del valore zero virgola venticinque.
+  - excerpt_id: percent-02
+    categories: [percentages]
+    spoken_text: La commissione annua è pari allo zero virgola zero venticinque per cento del capitale.
+    notes: Verifica la lettura del valore zero virgola zero venticinque.
+  - excerpt_id: percent-03
+    categories: [percentages]
+    spoken_text: Il rendimento reale è meno due virgola tre per cento, mentre l’inflazione è al tre per cento.
+    notes: Verifica percentuali negative, decimali e intere.
+  - excerpt_id: ratio-01
+    categories: [ratios]
+    spoken_text: Il portafoglio mantiene un rapporto sessanta a quaranta tra azioni e obbligazioni.
+    notes: Verifica un rapporto numerico comune nella finanza.
+  - excerpt_id: ratio-02
+    categories: [ratios]
+    spoken_text: Il rapporto prezzo utili è diciotto a uno e il rapporto di copertura è tre a due.
+    notes: Verifica due rapporti nello stesso periodo.
+  - excerpt_id: currency-01
+    categories: [currencies]
+    spoken_text: Il capitale iniziale ammonta a dodicimila trecentoquarantacinque euro e sessantasette centesimi.
+    notes: Verifica una somma in euro con centesimi.
+  - excerpt_id: currency-02
+    categories: [currencies, english-finance]
+    spoken_text: Il fondo detiene cinquemila dollari statunitensi e duemila sterline britanniche come riserva di liquidità.
+    notes: Verifica valute estere e una frase di allocazione.
+  - excerpt_id: abbreviation-01
+    categories: [abbreviations]
+    spoken_text: Il dottor Bianchi ha aggiornato il documento numero dodici alle ore diciassette e trenta.
+    notes: Verifica abbreviazioni italiane già espanse nel testo parlato.
+  - excerpt_id: abbreviation-02
+    categories: [abbreviations, section-references]
+    spoken_text: Si veda il paragrafo quattro, pagina centoventitré, e il capitolo secondo per ulteriori dettagli.
+    notes: Verifica rinvii editoriali e numeri strutturali.
+  - excerpt_id: date-01
+    categories: [dates]
+    spoken_text: Il contratto decorre dal ventotto febbraio duemilaventiquattro e scade il trentuno dicembre duemilaventicinque.
+    notes: Verifica due date complete e anni contemporanei.
+  - excerpt_id: date-02
+    categories: [dates]
+    spoken_text: Al quindici marzo millenovecentonovantanove il titolo valeva meno della metà del prezzo iniziale.
+    notes: Verifica una data storica e un anno lungo.
+  - excerpt_id: section-01
+    categories: [section-references]
+    spoken_text: Come indicato nella sezione tre punto due, l’appendice A prevale sulla tabella sette.
+    notes: Verifica sezione decimale, appendice e tabella.
+  - excerpt_id: acronym-01
+    categories: [acronyms]
+    spoken_text: La Banca Centrale Europea e il Fondo Monetario Internazionale hanno pubblicato nuove stime.
+    notes: Verifica acronimi europei espansi nel testo parlato.
+  - excerpt_id: acronym-02
+    categories: [acronyms, english-finance]
+    spoken_text: L’indice esse e pi cinquecento e il fondo negoziato in borsa hanno chiuso la seduta in rialzo.
+    notes: Verifica un acronimo inglese e la forma parlata di un indice.
+  - excerpt_id: english-01
+    categories: [english-finance]
+    spoken_text: La strategia buy and hold limita il market timing e riduce il turnover del portafoglio.
+    notes: Verifica termini finanziari inglesi inseriti in una frase italiana.
+  - excerpt_id: finance-01
+    categories: [difficult-finance]
+    spoken_text: La cartolarizzazione trasferisce i crediti a una società veicolo che emette titoli suddivisi in tranche.
+    notes: Verifica lessico tecnico con cartolarizzazione e tranche.
+  - excerpt_id: finance-02
+    categories: [difficult-finance]
+    spoken_text: Duration, convessità e rischio di reinvestimento influenzano la sensibilità delle obbligazioni ai tassi.
+    notes: Verifica vocaboli difficili della finanza obbligazionaria.
+  - excerpt_id: finance-03
+    categories: [difficult-finance, typographic-punctuation]
+    spoken_text: L’azionista valuta l’avviamento, l’indebitamento e la diluizione prima dell’aumento di capitale.
+    notes: Verifica apostrofi tipografici e termini societari complessi.
+  - excerpt_id: boundary-01
+    categories: [semicolon-colon, long-sentence]
+    spoken_text: "La regola è semplice: prima si definisce l’obiettivo; poi si misura il rischio, si confrontano i costi e soltanto alla fine si sceglie lo strumento."
+    notes: Verifica una pausa forte al confine segnato da due punti e punto e virgola.

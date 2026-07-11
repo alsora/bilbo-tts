@@ -294,8 +294,8 @@ class SynthesisSettings(ContractModel):
 
     sample_rate_hz: int = Field(gt=0)
     seed: int
-    speed: float = Field(default=1.0, gt=0)
-    temperature: float | None = Field(default=None, ge=0)
+    speed: float = Field(default=1.0, gt=0, allow_inf_nan=False)
+    temperature: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class SynthesisIdentity(ContractModel):

@@ -19,6 +19,14 @@ from bilbo_tts.normalization import (
     NormalizationError,
     normalize_book,
 )
+from bilbo_tts.qualification import (
+    CandidateConfigurationError,
+    CorpusError,
+    QualificationError,
+    prepare_listening_for_engines,
+    qualify_tts,
+)
+from bilbo_tts.qualification.audio import AudioValidationError
 from bilbo_tts.review_service import (
     ReviewError,
     write_chunk_review,
@@ -26,6 +34,7 @@ from bilbo_tts.review_service import (
 )
 from bilbo_tts.serialization import canonical_json_bytes
 from bilbo_tts.stages import StageError
+from bilbo_tts.tts import TtsError
 
 app = typer.Typer(
     help="Build reproducible Italian audiobooks.",
@@ -40,6 +49,12 @@ ChapterOption = Annotated[
     str,
     typer.Option("--chapter", help="Stable chapter identifier to review."),
 ]
+EngineArgument = Annotated[str, typer.Argument(help="Qualification engine name.")]
+EnginesArgument = Annotated[
+    list[str],
+    typer.Argument(help="Two or more qualified engine names."),
+]
+SeedOption = Annotated[int, typer.Option("--seed", help="Blind-order randomization seed.")]
 
 
 @app.callback()
@@ -151,6 +166,45 @@ def chunk(
         StageError,
     ) as error:
         _fail_stage("chunk-summary/v1", error)
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+
+
+@app.command("qualify-tts")
+def qualify_tts_command(
+    engine: EngineArgument,
+    project_root: ProjectRootOption = Path("."),
+) -> None:
+    """Generate qualification WAV files and auditable reports."""
+
+    try:
+        summary = qualify_tts(engine, project_root)
+    except (
+        ArtifactError,
+        CandidateConfigurationError,
+        CorpusError,
+        QualificationError,
+        TtsError,
+    ) as error:
+        _fail_stage("tts-qualification-summary/v1", error)
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+    if summary.status != "completed":
+        raise typer.Exit(code=1)
+
+
+@app.command("prepare-tts-listening")
+def prepare_tts_listening_command(
+    engines: EnginesArgument,
+    project_root: ProjectRootOption = Path("."),
+    seed: SeedOption = 20_260_711,
+) -> None:
+    """Build a deterministic blinded listening package."""
+
+    try:
+        summary = prepare_listening_for_engines(tuple(engines), project_root, seed)
+    except (ArtifactError, AudioValidationError, QualificationError) as error:
+        _fail_stage("tts-listening-summary/v1", error)
 
     typer.echo(canonical_json_bytes(summary).decode("utf-8"))
 

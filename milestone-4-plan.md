@@ -16,7 +16,7 @@ This file is the session-to-session execution plan for Milestone 4 and checkpoin
 
 ## Decisions already made
 
-- Implement and evaluate both Chatterbox Multilingual V3 and Kokoro-82M through MLX.
+- Implement Chatterbox Multilingual V3 through official PyTorch MPS and Kokoro-82M through MLX.
 - Keep each inference backend in its own Pixi environment with lazy imports.
 - Add a minimal MLX-Whisper qualification scorer during C4 and run it in a separate process after TTS exits.
 - Defer the reusable ASR adapter, retry classification, review queue, and verification integration to C6.

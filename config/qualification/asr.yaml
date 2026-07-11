@@ -1,0 +1,6 @@
+schema_version: asr-candidate/v1
+engine: mlx-whisper
+backend: mlx
+model_id: mlx-community/whisper-large-v3-turbo
+revision: a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb
+language: it

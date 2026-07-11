@@ -38,7 +38,9 @@ Inspect the active environment without downloading models:
 
 Model-specific environments are named `chatterbox`, `kokoro`, and `asr`.
 
-Their dependencies will be added at the model qualification milestone.
+Each environment has an exact dependency pin and remains isolated from the default development environment.
+The Chatterbox candidate uses the official V3 PyTorch MPS implementation because no maintained V3 MLX port exists.
+The Kokoro and Whisper candidates use MLX.
 
 ## Testing
 
@@ -299,3 +301,40 @@ Committed text-stage fixtures and reviewed goldens run without model downloads:
 ```shell
 .tools/bin/pixi run pytest tests/integration/test_text_pipeline_cli.py -v --no-cov
 ```
+
+## TTS qualification
+
+The fixed reviewed Italian corpus and exact candidate configurations live under `config/qualification/`.
+The default development environment can run the deterministic fake candidate without importing or downloading a model.
+
+Run the fake qualification path:
+
+```shell
+.tools/bin/pixi run bilbo qualify-tts fake --project-root .
+```
+
+The command writes canonical evidence to `work/tts-qualification/fake/result.json`.
+It writes one validated mono 16-bit PCM WAV per excerpt under `work/tts-qualification/fake/audio/`.
+It writes a compact exception-focused report to `work/tts-qualification/fake/summary.md`.
+
+Run a real candidate only from its isolated environment after the corresponding adapter and hardware checks are available:
+
+```shell
+.tools/bin/pixi run -e chatterbox bilbo qualify-tts chatterbox --project-root .
+.tools/bin/pixi run -e kokoro bilbo qualify-tts kokoro --project-root .
+```
+
+Model downloads use the ignored cache paths below `work/cache/`.
+The qualification runner records exact model, voice, settings, inference parameters, checksums, timings, real-time factor, failures, and process peak RSS when macOS exposes it.
+No real model is imported by ordinary tests or `pixi run check`.
+
+After two complete qualification runs, create a deterministic blind-listening package:
+
+```shell
+.tools/bin/pixi run bilbo prepare-tts-listening chatterbox kokoro \
+  --project-root . \
+  --seed 20260711
+```
+
+The command writes opaque WAV names and `rating-sheet.md` below `work/tts-qualification/listening/`.
+Keep `mapping.json` closed until all ratings have been recorded.
