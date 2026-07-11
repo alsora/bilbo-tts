@@ -5,7 +5,7 @@
 - Milestone 2 source ingestion is automatically verified.
 - Checkpoint C2 is awaiting the required manual review of one representative target-book chapter.
 - The active branch is `milestone/c2-source-ingestion`.
-- The C2 implementation commits are `c925ca3`, `24f56a9`, and `c46afe2`.
+- The C2 implementation commits are `c925ca3`, `24f56a9`, `c46afe2`, and `b8c6d21`.
 - The private target source from `/Users/alsora/repos/alsora/tts-investimento` is staged only under ignored `work/c2-target-project/`.
 - The representative chapter is `Introduzione` in `work/c2-target-project/work/tts-investimento/reports/extraction.md`.
 
@@ -26,14 +26,14 @@
 - The C1 baseline `.tools/bin/pixi run check` passed before implementation.
 - The focused C2 verification passed 46 unit and integration tests.
 - `.tools/bin/pixi run check` passes formatting, Ruff linting, strict mypy, and all 79 tests.
-- Test coverage is 91.76 percent.
+- Test coverage is 91.81 percent.
 - Real CLI integrations match byte-exact LaTeX and PDF golden artifacts and reports without model downloads.
 - Repeated fixture generation and ingestion produce byte-identical outputs.
 - Tests reject source and include escapes, malformed adapter output, scanned PDFs, missing tools, invalid summaries, and partial canonical writes.
-- Target ingestion produced 16 chapters and 2,200 blocks with 109 warnings and three explicit exclusions.
+- Target ingestion produced 16 chapters and 2,200 blocks with 108 warnings and three explicit exclusions.
 - `Introduzione` contains ordered blocks `block-000005` through `block-000039`, including four list items and one footnote with no block-specific warnings.
 - Target checks confirm `app:dati-rendimento` renders as `appendice A.5` and `chap:analizzare-prodotti` renders as `capitolo 10`.
-- Seven commands reference three labels absent from the source and remain explicit `riferimento non risolto` warnings.
+- Labels on unnumbered subsections resolve to their numbered parent sections, and no target cross-reference remains unresolved.
 
 ## Durable references
 
