@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import pytest
 
 from bilbo_tts.artifacts import ArtifactStore
 from bilbo_tts.models import BookDocument, SourceFormat
 
-FixtureRunner = Callable[[str], tuple[Any, Path]]
+
+class FixtureRunner(Protocol):
+    def __call__(self, name: str, stage: str = "ingest") -> tuple[Any, Path]: ...
 
 
 @pytest.mark.parametrize(

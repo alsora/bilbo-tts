@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import shutil
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import pytest
 from typer.testing import CliRunner
 
 from bilbo_tts import cli
 
-FixtureRunner = Callable[[str], tuple[Any, Path]]
+
+class FixtureRunner(Protocol):
+    def __call__(self, name: str, stage: str = "ingest") -> tuple[Any, Path]: ...
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def run_book_fixture(tmp_path: Path) -> FixtureRunner:
     fixtures = Path(__file__).parents[1] / "fixtures" / "books"
     project_root = tmp_path / "project"
 
-    def run(name: str) -> tuple[Any, Path]:
+    def run(name: str, stage: str = "ingest") -> tuple[Any, Path]:
         destination = project_root / "books" / name
         if not destination.exists():
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -28,7 +29,7 @@ def run_book_fixture(tmp_path: Path) -> FixtureRunner:
         result = CliRunner().invoke(
             cli.app,
             [
-                "ingest",
+                stage,
                 f"books/{name}/book.yaml",
                 "--project-root",
                 str(project_root),
