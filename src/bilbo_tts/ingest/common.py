@@ -350,7 +350,7 @@ def _map_paragraph(
     text = _clean_text("".join(text_parts))
     blocks: list[MappedBlock] = []
     exclusions: list[ExclusionRecord] = []
-    if image_only and text.casefold() in {"image", "figura"}:
+    if image_only and (not text or text.casefold() in {"image", "figura"}):
         exclusions.append(
             _exclusion("non-narratable-image", "Image without a caption excluded", source)
         )
@@ -363,54 +363,43 @@ def _map_paragraph(
                 warnings=_unique(tuple(warnings)),
             )
         )
-    elif image_only:
-        exclusions.append(
-            _exclusion("non-narratable-image", "Image without a caption excluded", source)
-        )
     blocks.extend(footnotes)
     return blocks, exclusions
 
 
 def _plain_text(value: Any) -> str:
-    if isinstance(value, list):
-        return "".join(_plain_text(item) for item in value)
-    if not isinstance(value, dict):
-        return ""
-    tag = value.get("t")
-    content = value.get("c")
-    if tag == "Str" and isinstance(content, str):
-        return content
-    if tag in {"Space", "SoftBreak", "LineBreak"}:
-        return " "
-    if tag == "Code" and isinstance(content, list) and len(content) == 2:
-        return str(content[1])
-    if tag == "Math" and isinstance(content, list) and len(content) == 2:
-        return str(content[1])
-    if tag == "RawInline" and isinstance(content, list) and len(content) == 2:
-        return str(content[1])
-    if tag == "Quoted" and isinstance(content, list) and len(content) == 2:
-        return f'"{_plain_text(content[1])}"'
-    if tag in {"Link", "Image"} and isinstance(content, list) and len(content) >= 2:
-        return _plain_text(content[1])
-    if tag == "Note":
-        return ""
-    return _plain_text(content)
+    return "".join(_text_parts(value, preserve_spacing=True))
 
 
 def _text_segments(value: Any) -> list[str]:
+    return _text_parts(value, preserve_spacing=False)
+
+
+def _text_parts(value: Any, *, preserve_spacing: bool) -> list[str]:
     if isinstance(value, list):
-        return [segment for item in value for segment in _text_segments(item)]
+        return [
+            part for item in value for part in _text_parts(item, preserve_spacing=preserve_spacing)
+        ]
     if not isinstance(value, dict):
         return []
     tag = value.get("t")
     content = value.get("c")
     if tag == "Str" and isinstance(content, str):
         return [content]
-    if tag == "Code" and isinstance(content, list) and len(content) == 2:
+    if tag in {"Space", "SoftBreak", "LineBreak"}:
+        return [" "] if preserve_spacing else []
+    if tag in {"Code", "Math"} and isinstance(content, list) and len(content) == 2:
         return [str(content[1])]
-    if tag == "Math" and isinstance(content, list) and len(content) == 2:
-        return [str(content[1])]
-    return _text_segments(content)
+    if tag == "RawInline" and isinstance(content, list) and len(content) == 2:
+        return [str(content[1])] if preserve_spacing else []
+    if tag == "Quoted" and isinstance(content, list) and len(content) == 2:
+        quoted = _text_parts(content[1], preserve_spacing=preserve_spacing)
+        return ['"', *quoted, '"'] if preserve_spacing else quoted
+    if tag in {"Link", "Image"} and isinstance(content, list) and len(content) >= 2:
+        return _text_parts(content[1], preserve_spacing=preserve_spacing)
+    if tag == "Note":
+        return []
+    return _text_parts(content, preserve_spacing=preserve_spacing)
 
 
 def _ordered_items(content: Any) -> Any:

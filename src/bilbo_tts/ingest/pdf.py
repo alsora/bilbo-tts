@@ -25,8 +25,6 @@ class ScannedPdfError(IngestionError):
 def extract_pdf(
     source_path: Path,
     source_name: str,
-    *,
-    pandoc_executable: str = "pandoc",
 ) -> tuple[MappedContent, ...]:
     """Extract page-scoped Markdown and map it through Pandoc."""
 
@@ -70,7 +68,6 @@ def extract_pdf(
             label=f"{source_name} page {page}",
             cwd=source_path.parent,
             input_text=markdown,
-            pandoc_executable=pandoc_executable,
         )
         mapped = map_pandoc_ast(ast, source)
         page_warnings.extend(diagnostics)

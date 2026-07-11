@@ -16,20 +16,14 @@ def read_pandoc_ast(
     from_format: str,
     label: str,
     cwd: Path,
-    input_name: str | None = None,
-    input_text: str | None = None,
-    pandoc_executable: str = "pandoc",
+    input_text: str,
 ) -> tuple[dict[str, Any], tuple[str, ...]]:
     """Run Pandoc and return a JSON object plus non-empty diagnostics."""
 
-    if (input_name is None) == (input_text is None):
-        raise ValueError("provide exactly one Pandoc input")
-    executable = shutil.which(pandoc_executable)
+    executable = shutil.which("pandoc")
     if executable is None:
-        raise IngestionError(f"Pandoc executable not found: {pandoc_executable}")
+        raise IngestionError("Pandoc executable not found: pandoc")
     command = [executable, f"--from={from_format}", "--to=json"]
-    if input_name is not None:
-        command.append(input_name)
     try:
         completed = subprocess.run(
             command,

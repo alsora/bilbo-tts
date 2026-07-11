@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Literal, Self
 
@@ -210,38 +209,11 @@ def _source_checksum(source_path: Path, config: BookConfig) -> str:
             data = path.read_bytes()
         except OSError as error:
             raise IngestionError(f"cannot read LaTeX source file {path}: {error}") from error
-        if path.suffix.casefold() == ".tex":
-            _validate_latex_includes(path, data, source_root)
         digest = sha256_bytes(data)
         files.append({"path": path.relative_to(source_root).as_posix(), "sha256": digest})
     if not files:
         raise IngestionError(f"LaTeX source tree contains no files: {source_root}")
     return canonical_sha256({"entry_point": source_path.name, "files": files})
-
-
-def _validate_latex_includes(path: Path, data: bytes, source_root: Path) -> None:
-    try:
-        source = data.decode("utf-8")
-    except UnicodeDecodeError as error:
-        raise IngestionError(f"LaTeX source must be UTF-8: {path}") from error
-    source = re.sub(r"(?<!\\)%.*", "", source)
-    includes: list[str] = []
-    for match in re.finditer(r"\\(?:input|include)\s*\{([^{}]+)\}", source):
-        includes.append(match.group(1).strip())
-    for match in re.finditer(r"\\import\s*\{([^{}]+)\}\s*\{([^{}]+)\}", source):
-        includes.append(str(Path(match.group(1).strip()) / match.group(2).strip()))
-
-    for include_name in includes:
-        include = path.parent / include_name
-        if not include.suffix:
-            include = include.with_suffix(".tex")
-        resolved = include.resolve(strict=False)
-        if not resolved.is_relative_to(source_root):
-            raise IngestionError(
-                f"LaTeX include escapes the source directory in {path}: {include_name}"
-            )
-        if not resolved.is_file():
-            raise IngestionError(f"LaTeX include does not exist in {path}: {include_name}")
 
 
 def _completed_summary(

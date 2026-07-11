@@ -31,8 +31,6 @@ class ReferenceTarget:
 def extract_latex(
     source_path: Path,
     source_name: str,
-    *,
-    pandoc_executable: str = "pandoc",
 ) -> MappedContent:
     """Parse a LaTeX entry point and map its Pandoc AST."""
 
@@ -41,7 +39,6 @@ def extract_latex(
         from_format="latex",
         label=source_name,
         cwd=source_path.parent,
-        pandoc_executable=pandoc_executable,
         input_text=prepared.text,
     )
     mapped = map_pandoc_ast(raw_ast, SourceLocation(source_path=source_name))

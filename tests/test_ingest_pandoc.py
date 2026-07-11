@@ -32,7 +32,7 @@ def test_pandoc_runner_reports_missing_executable(
             from_format="latex",
             label="book",
             cwd=tmp_path,
-            input_name="book.tex",
+            input_text="",
         )
 
 
@@ -70,10 +70,25 @@ def test_pandoc_runner_rejects_failed_or_invalid_results(
             from_format="latex",
             label="book",
             cwd=tmp_path,
-            input_name="book.tex",
+            input_text="",
         )
 
 
-def test_pandoc_runner_requires_exactly_one_input(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="exactly one"):
-        pandoc.read_pandoc_ast(from_format="latex", label="book", cwd=tmp_path)
+def test_pandoc_runner_reports_process_start_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("bilbo_tts.ingest.pandoc.shutil.which", lambda _name: "/pandoc")
+
+    def fail_to_start(*_args: object, **_kwargs: object) -> None:
+        raise OSError("cannot execute")
+
+    monkeypatch.setattr("bilbo_tts.ingest.pandoc.subprocess.run", fail_to_start)
+
+    with pytest.raises(IngestionError, match="cannot run Pandoc"):
+        pandoc.read_pandoc_ast(
+            from_format="latex",
+            label="book",
+            cwd=tmp_path,
+            input_text="",
+        )
