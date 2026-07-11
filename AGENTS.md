@@ -39,6 +39,16 @@ References:
 - Link to the owning document instead of copying information that could become stale.
 - Document user-visible commands, configuration, failure recovery, and non-obvious operational constraints.
 
+## Session handoff
+
+- Update [`HANDOFF.md`](HANDOFF.md) at the end of every working session and at every milestone or checkpoint boundary.
+- Treat `HANDOFF.md` as the concise operational state for the next agent, not as an architecture or progress-history document.
+- Record the active branch, relevant commits, completed work, verification actually run, blockers, manual checks, and the next concrete action.
+- Replace stale handoff information instead of appending a chronological diary.
+- Link to `design.md` and `implementation.md` for durable decisions rather than duplicating them.
+- Do not describe uncommitted work as complete, and identify any intentional working-tree changes explicitly.
+- Include the handoff in the final milestone push when milestone execution authorizes commits and pushing.
+
 ## Dependencies and generated artifacts
 
 - Manage Python packages, native tools, and commands through Pixi rather than system installations.
