@@ -189,6 +189,7 @@ Optional metadata fields are `subtitle`, `narrator`, and `cover_path`.
 The reviewed built-in finance lexicon in `config/lexicons/finance-it.yaml` is always active for Italian normalization.
 Entries in `normalization.lexicons` are checksum-pinned, book-relative overlays applied in listed order.
 Keep engine-specific pronunciation overrides in separately named overlay files so model-independent speech text remains auditable.
+The overlay file format, placement rules, and correction workflow are documented in [Pronunciation lexicons](#pronunciation-lexicons).
 `chunking.max_characters` is an explicit positive character limit; engine-specific phoneme limits are deferred until model qualification.
 The `fake` synthesis values select the deterministic dependency-free engine used by committed integration fixtures.
 For production, replace them with the qualified Chatterbox values documented below.
@@ -301,6 +302,98 @@ Committed text-stage fixtures and reviewed goldens run without model downloads:
 ```shell
 .tools/bin/pixi run pytest tests/integration/test_text_pipeline_cli.py -v --no-cov
 ```
+
+### Pronunciation lexicons
+
+Pronunciation lexicons are reviewed replacement rules that rewrite `spoken_text` during normalization.
+They exist in two layers with different purposes.
+
+The model-independent layer defines what a human Italian narrator would read aloud, such as acronym spellings and abbreviation expansions.
+It consists of the always-active built-in `config/lexicons/finance-it.yaml` plus any book overlays that correct the spoken form itself.
+The model-specific layer works around how one TTS engine mispronounces text that is already correct Italian, typically loanwords.
+Keep those workarounds in overlay files named for the engine, such as `lexicons/kokoro-it.yaml` or `lexicons/chatterbox-it.yaml`.
+
+Use this placement rule when a word sounds wrong.
+If the written form is not what should be spoken, for example `BCE` should be read as `bi ci e`, add a model-independent entry.
+If a narrator would read the text exactly as written but the engine renders it badly, add an entry to that engine's overlay.
+If both engines mispronounce a correct word, start with one entry per engine overlay, because the respelling that fixes one engine is usually not optimal for the other.
+Promote a respelling to the model-independent layer only after listening confirms it works well for every qualified engine.
+
+Overlay selection is by convention, not enforcement: the normalize stage applies every lexicon listed in `book.yaml` regardless of the configured engine.
+This works because each book pins exactly one synthesis engine.
+When switching a book to another engine, also swap the model-specific overlay entries in `normalization.lexicons`.
+
+#### Overlay file format
+
+Each lexicon is a YAML file with schema version `pronunciation-lexicon/v1`:
+
+```yaml
+schema_version: pronunciation-lexicon/v1
+lexicon_id: my-book-kokoro-it
+entries:
+  - entry_id: loanword-management
+    mode: literal
+    pattern: management
+    spoken: mànagement
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng stresses the wrong syllable without the explicit accent.
+```
+
+`lexicon_id` is a short lowercase identifier and `entry_id` values must be unique within the file.
+`mode` is `literal` or `regex`; a regex pattern must be valid and must not match empty text.
+`spoken` is the constant replacement text; regex group references are not expanded.
+`priority` defaults to 0, and entries apply in descending priority.
+At equal priority, entries from later-listed overlays apply before earlier lexicons, so an overlay can take precedence over the built-in finance lexicon.
+`case_sensitive` defaults to false.
+`word_boundaries` defaults to true and prevents matches inside larger words.
+Use `notes` to record what was wrong and why the replacement fixes it, because lexicons are reviewed data.
+Unknown fields are rejected with an actionable validation error.
+
+#### Wiring an overlay into a book
+
+Place the file below the book directory and list it with its checksum in `book.yaml`:
+
+```yaml
+normalization:
+  version: it-v1
+  lexicons:
+    - path: lexicons/my-book-it.yaml
+      sha256: <64-character hex checksum of lexicons/my-book-it.yaml>
+    - path: lexicons/kokoro-it.yaml
+      sha256: <64-character hex checksum of lexicons/kokoro-it.yaml>
+```
+
+Compute the checksum from the exact file bytes:
+
+```shell
+shasum -a 256 books/my-book/lexicons/kokoro-it.yaml
+```
+
+Every edit to a lexicon file changes its checksum, so update the matching `sha256` value in `book.yaml` in the same change.
+After a lexicon change, rerun `normalize`, `chunk`, and `synthesize`.
+The synthesis cache key hashes each chunk's spoken text, so only chunks whose spoken text actually changed are regenerated.
+
+#### Crafting and verifying a correction
+
+Kokoro converts text to phonemes with espeak-ng, which honors written Italian accents, so a respelling deterministically controls stress and phonemes.
+Verify a Kokoro respelling without generating audio by printing the exact phonemes the model will receive:
+
+```shell
+.tools/bin/pixi run -e kokoro python -c "
+from misaki import espeak
+print(espeak.EspeakG2P(language='it')('il mànagement')[0])"
+```
+
+Iterate on the spelling until the phoneme string is correct, then confirm with one short synthesis.
+
+Chatterbox has no phoneme stage and reads raw text through a learned tokenizer, so a respelling only nudges the model.
+Verify a Chatterbox entry by synthesizing one sentence containing the word and listening, then adjust the phonetic Italian respelling until it sounds right.
+Accented phonetic respellings such as `compiùter` are a good starting point.
+
+Verification compares ASR transcripts against the final `spoken_text`, so a respelled loanword registers a small expected WER hit on chunks that contain it.
+Treat that as known noise when reviewing verification reports rather than as a synthesis regression.
 
 ## TTS qualification
 
