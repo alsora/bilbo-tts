@@ -13,7 +13,8 @@ from bilbo_tts.tts.contracts import TtsError
 def float_samples_to_pcm_s16le(samples: Iterable[object]) -> bytes:
     """Convert finite mono float samples to clipped signed PCM16."""
 
-    pcm = bytearray()
+    integers: list[int] = []
+    append = integers.append
     for index, value in enumerate(samples):
         if isinstance(value, bool) or not isinstance(value, Real):
             raise TtsError(
@@ -23,9 +24,14 @@ def float_samples_to_pcm_s16le(samples: Iterable[object]) -> bytes:
         sample = float(value)
         if not math.isfinite(sample):
             raise TtsError(f"audio sample {index} is not finite")
-        clipped = min(1.0, max(-1.0, sample))
-        integer = min(32_767, max(-32_768, int(clipped * 32_768)))
-        pcm.extend(struct.pack("<h", integer))
-    if not pcm:
+        if sample <= -1.0:
+            append(-32_768)
+        elif sample >= 1.0:
+            append(32_767)
+        else:
+            # int() truncates toward zero, matching the historical conversion
+            # so previously checksummed WAV outputs stay byte-identical.
+            append(int(sample * 32_768.0))
+    if not integers:
         raise TtsError("model returned empty audio")
-    return bytes(pcm)
+    return struct.pack(f"<{len(integers)}h", *integers)

@@ -347,6 +347,12 @@ def test_pcm_conversion_is_dependency_free_strict_and_clipped() -> None:
     assert float_samples_to_pcm_s16le([-1.5, 0.0, 0.5, 1.5]) == struct.pack(
         "<hhhh", -32_768, 0, 16_384, 32_767
     )
+    # Exact clipping and truncation-toward-zero boundaries must stay
+    # byte-identical to the historical conversion or previously checksummed
+    # WAV outputs would be invalidated.
+    assert float_samples_to_pcm_s16le(
+        [-1.0, 1.0, -0.999999, 0.999999, -0.5000001, 0.5000001]
+    ) == struct.pack("<hhhhhh", -32_768, 32_767, -32_767, 32_767, -16_384, 16_384)
     invalid_cases: list[tuple[list[object], str]] = [
         ([], "empty"),
         ([[0.0]], "one-dimensional"),
