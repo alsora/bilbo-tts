@@ -50,6 +50,7 @@ class FakeTorch:
         self.float32 = object()
         self.float16 = object()
         self.bfloat16 = object()
+        self.long = object()
         self.events = events
 
     def manual_seed(self, seed: int) -> object:
@@ -172,7 +173,11 @@ class FakeT3:
 
 
 class FakeTextTokens:
-    def to(self, _device: str) -> FakeTextTokens:
+    def __init__(self) -> None:
+        self.targets: list[object] = []
+
+    def to(self, target: object) -> FakeTextTokens:
+        self.targets.append(target)
         return self
 
 

@@ -359,10 +359,16 @@ class ChatterboxTtsEngine:
         helpers = _import_turbo_helpers()
         raw: Any = model
         torch: Any = dependencies.torch
-        text_tokens: Any = raw.tokenizer.text_to_tokens(
-            helpers.punc_norm(spoken_text),
-            language_id="it",
-        ).to("mps")
+        # Unlike the cfg path, inference_turbo does not normalize token dtype,
+        # and its repetition-penalty gather requires int64 indices.
+        text_tokens: Any = (
+            raw.tokenizer.text_to_tokens(
+                helpers.punc_norm(spoken_text),
+                language_id="it",
+            )
+            .to("mps")
+            .to(torch.long)
+        )
         text_tokens = helpers.pad(text_tokens, (1, 0), value=raw.t3.hp.start_text_token)
         text_tokens = helpers.pad(text_tokens, (0, 1), value=raw.t3.hp.stop_text_token)
         with torch.inference_mode():
