@@ -21,6 +21,13 @@ References:
 - Add comments when they explain intent, constraints, trade-offs, or non-obvious behavior.
 - Do not add comments that merely restate what the code already says.
 
+## Source documents
+
+- Treat configured book source documents as user-owned, read-only inputs.
+- Never edit source documents, even to fix extraction, normalization, pronunciation, or synthesis problems.
+- Report source-level problems to the user and record unresolved items in the `TODO` section of [`HANDOFF.md`](HANDOFF.md).
+- Wait for the user to make source changes, then refresh derived artifacts through the normal pipeline.
+
 ## Testing
 
 - Write extensive unit tests for domain logic, edge cases, failure modes, and boundary conditions.

@@ -3,7 +3,7 @@
 ## Current state
 
 - The active branch is `milestone/c8-chapters-2-6`.
-- Milestone 8 code and documentation are implemented through commit `cd1cbec`.
+- Milestone 8 code and documentation are implemented through commit `538a57a`.
 - Repeatable ordered chapter selection, scoped verification merging, multi-chapter assembly, `bilbo run`, text-only qualification, model-license provenance, and atomic content-addressed build bundles are implemented.
 - C8 is deliberately scoped to `chapter-0002` through `chapter-0006` and will produce one five-chapter M4B after listening review clears the verification gate.
 - The ignored target workspace is `work/c2-target-project/work/tts-investimento/`.
@@ -13,6 +13,7 @@
 - The deterministic checklist is `reports/listening-checklist.md`, and the matching 47-item playlist is `reports/listening-checklist.m3u` in the target workspace.
 - The existing checklist contains the original 22 flagged chunks and five deterministic accepted samples from each selected chapter; refresh it after all pronunciation fixes are regenerated.
 - The user will remove the four narrated URLs from the private source document, so URL omission is intentionally not being implemented as a pipeline rule.
+- Source documents are user-owned read-only inputs and must never be edited by an agent.
 - The built-in lexicon now pronounces `INPS` as one word while retaining letter-by-letter pronunciation for acronyms such as `ETF`.
 - Listening-approved Kokoro overrides now cover `meglio`, `go-kart`, `duemiladiciannove`, `impegnandosi`, and `centoventisette`.
 - `interesse` is not globally overridden because ordinary occurrences such as `block-000044.s0000.p0000` sound correct; the defect in `block-000498.s0004.p0000` remains context-specific.
@@ -48,3 +49,11 @@
 - Record an explicit `review-verification` accept or regenerate decision for every flagged chunk.
 - Rerun the exact five-chapter `bilbo run` command after review.
 - Validate the resulting M4B and build bundle, rerun the command once more to prove no-op reuse, and keep C8 pending until the full listening checklist is approved.
+
+## TODO
+
+- The user must remove the narrated URLs currently represented by `block-000082.s0000.p0000`, `block-000118.s0001.p0000`, `block-000201.s0001.p0000`, and `block-000210.s0000.p0000`.
+- Resolve the context-specific final-vowel defect in the isolated `Oro` heading at `block-000301.s0000.p0000` without editing the source document.
+- Resolve or explicitly accept the context-specific `interesse` defect in `block-000498.s0004.p0000` without adding a global override.
+- After user-owned source changes, rerun the selected text pipeline before regenerating or accepting any affected chunks.
+- Refresh the listening checklist, clear every remaining review decision, assemble the five-chapter M4B, publish the build bundle, and prove no-op reuse.
