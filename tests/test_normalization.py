@@ -150,6 +150,7 @@ def test_equation_rules_are_bounded_and_warn_for_unsupported_math(
             "trentacinque a quaranta per cento",
             False,
         ),
+        ("miliardi di €", "miliardi di euro", False),
         ("50/30/20", "cinquanta a trenta a venti", False),
     ],
 )

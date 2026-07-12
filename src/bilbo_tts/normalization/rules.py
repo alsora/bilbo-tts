@@ -348,7 +348,14 @@ def _abbreviations(text: str) -> str:
 
 
 def _symbols(text: str) -> str:
-    replacements = {"&": " e ", "+": " più ", "=": " uguale a "}
+    replacements = {
+        "&": " e ",
+        "+": " più ",
+        "=": " uguale a ",
+        "€": " euro ",
+        "$": " dollari ",
+        "£": " sterline ",
+    }
     for symbol, replacement in replacements.items():
         text = text.replace(symbol, replacement)
     return text
