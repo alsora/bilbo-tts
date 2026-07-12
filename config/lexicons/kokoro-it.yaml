@@ -17,6 +17,86 @@ entries:
     case_sensitive: false
     word_boundaries: true
     notes: espeak-ng reads duration as Italian duratjon; the reviewed Italianized rendering was preferred over a closer English one.
+  - entry_id: loanword-wall-street
+    mode: literal
+    pattern: Wall Street
+    spoken: uòl strìtt
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The Italianized rendering avoids Kokoro's strongly English rhotic and long vowels; the doubled final t keeps the release audible.
+  - entry_id: homograph-principi
+    mode: literal
+    pattern: principi
+    spoken: princìpi
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng defaults to prìncipi meaning princes; the reviewed text uses only princìpi meaning principles.
+  - entry_id: vowel-riflettere
+    mode: literal
+    pattern: riflettere
+    spoken: riflèttere
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng closes the stressed e; standard Italian uses an open e.
+  - entry_id: stress-siano
+    mode: literal
+    pattern: siano
+    spoken: sìano
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The explicit accent prevents Kokoro from shifting or overextending the stressed vowel.
+  - entry_id: stress-maggior
+    mode: literal
+    pattern: maggior
+    spoken: maggiór
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The explicit accent fixes Kokoro's inconsistent rendering of the apocopated comparative.
+  - entry_id: vowel-vedremo
+    mode: literal
+    pattern: vedremo
+    spoken: vedrémo
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng chooses an open stressed e; standard Italian uses the closed e of the future ending.
+  - entry_id: vowel-ordine
+    mode: literal
+    pattern: ordine
+    spoken: órdine
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng chooses an open stressed o; standard Italian uses a closed o.
+  - entry_id: vowel-costosi
+    mode: literal
+    pattern: costosi
+    spoken: costósi
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng chooses an open stressed o; standard Italian uses a closed o.
+  - entry_id: consonant-azienda
+    mode: literal
+    pattern: azienda
+    spoken: ad-ziènda
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The marker receives a reviewed voiced dz sequence in the Kokoro adapter, avoiding both the weak ordinary onset and an overlong affricate.
+  - entry_id: consonant-aziende
+    mode: literal
+    pattern: aziende
+    spoken: ad-ziènde
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The marker receives a reviewed voiced dz sequence in the Kokoro adapter, avoiding both the weak ordinary onset and an overlong affricate.
   - entry_id: vowel-valeva
     mode: literal
     pattern: valeva

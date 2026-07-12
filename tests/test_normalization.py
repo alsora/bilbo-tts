@@ -202,6 +202,21 @@ def test_shared_scope_loads_from_repository_lexicon_directory(tmp_path: Path) ->
     spoken, transformations, _ = apply_rules("Zero virgola venticinque.", loaded)
     assert spoken == "dzzèro virgola venticinque."
     assert transformations[0].rule_id == "lexicon.kokoro-it.consonant-zero"
+    corrections = (
+        ("Principi", "princìpi", "homograph-principi"),
+        ("Wall Street", "uòl strìtt", "loanword-wall-street"),
+        ("riflettere", "riflèttere", "vowel-riflettere"),
+        ("siano", "sìano", "stress-siano"),
+        ("maggior", "maggiór", "stress-maggior"),
+        ("vedremo", "vedrémo", "vowel-vedremo"),
+        ("ordine", "órdine", "vowel-ordine"),
+        ("costosi", "costósi", "vowel-costosi"),
+        ("azienda", "ad-ziènda", "consonant-azienda"),
+    )
+    for source, expected, entry_id in corrections:
+        spoken, transformations, _ = apply_rules(source, loaded)
+        assert spoken == expected
+        assert transformations[0].rule_id == f"lexicon.kokoro-it.{entry_id}"
 
 
 def test_shared_scope_rejects_paths_escaping_the_lexicon_directory(tmp_path: Path) -> None:

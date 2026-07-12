@@ -36,6 +36,14 @@ _GENERATION_LOCK = threading.Lock()
 _ZERO_MARKER = "dzzèro"
 _ZERO_SOURCE_PHONEMES = "dʦʦˈɛro"
 _ZERO_TARGET_PHONEMES = "dzˈɛro"
+_AZIENDA_MARKER = "ad-ziènda"
+_AZIENDA_SOURCE_PHONEMES = "adʣjˈɛnda"
+_AZIENDA_TARGET_PHONEMES = "adzjˈɛnda"
+_PHONEME_OVERRIDES = (
+    (_ZERO_SOURCE_PHONEMES, _ZERO_TARGET_PHONEMES),
+    (_AZIENDA_SOURCE_PHONEMES, _AZIENDA_TARGET_PHONEMES),
+)
+_PHONEME_OVERRIDE_MARKERS = (_ZERO_MARKER, _AZIENDA_MARKER)
 
 
 class _Metal(Protocol):
@@ -111,8 +119,8 @@ class _Dependencies(NamedTuple):
     numpy: _NumpyModule
 
 
-class _ZeroOverridePhonemizer:
-    """Replace the reviewed zero marker after ordinary Italian G2P."""
+class _ReviewedOverridePhonemizer:
+    """Replace reviewed pronunciation markers after ordinary Italian G2P."""
 
     def __init__(self, base: _Phonemizer) -> None:
         self._base = base
@@ -128,7 +136,9 @@ class _ZeroOverridePhonemizer:
         return self._base._ids_from_phonemes(phonemes)
 
     def _replace(self, phonemes: str) -> tuple[str, list[int]]:
-        corrected = phonemes.replace(_ZERO_SOURCE_PHONEMES, _ZERO_TARGET_PHONEMES)
+        corrected = phonemes
+        for source, target in _PHONEME_OVERRIDES:
+            corrected = corrected.replace(source, target)
         return corrected, self._ids_from_phonemes(corrected)
 
 
@@ -140,7 +150,7 @@ class KokoroTtsEngine:
         self._candidate = candidate
         self._model: _KokoroModel | None = None
         self._model_lock = threading.Lock()
-        self._zero_override_installed = False
+        self._phoneme_override_installed = False
         self._capabilities = TtsCapabilities(
             engine=ENGINE,
             model=candidate.model,
@@ -185,8 +195,8 @@ class KokoroTtsEngine:
         if not dependencies.mlx.metal.is_available():
             raise TtsError("kokoro requires MLX Metal on Apple Silicon")
         model = self._load_model(dependencies)
-        if _ZERO_MARKER in request.spoken_text:
-            self._install_zero_override(model)
+        if any(marker in request.spoken_text for marker in _PHONEME_OVERRIDE_MARKERS):
+            self._install_phoneme_overrides(model)
         try:
             with _GENERATION_LOCK:
                 dependencies.mlx.random.seed(request.settings.seed)
@@ -219,22 +229,22 @@ class KokoroTtsEngine:
         validate_result(self.capabilities, request, result)
         return result
 
-    def _install_zero_override(self, model: _KokoroModel) -> None:
-        if self._zero_override_installed:
+    def _install_phoneme_overrides(self, model: _KokoroModel) -> None:
+        if self._phoneme_override_installed:
             return
         phonemizable = cast(_PhonemizableKokoroModel, model)
         try:
             original = phonemizable._get_phonemizer
 
             def overridden(language: str, voice: str) -> _Phonemizer:
-                return _ZeroOverridePhonemizer(original(language, voice))
+                return _ReviewedOverridePhonemizer(original(language, voice))
 
             phonemizable._get_phonemizer = overridden  # type: ignore[method-assign]
         except (AttributeError, TypeError) as error:
             raise TtsError(
                 "pinned Kokoro runtime does not expose the required phonemizer boundary"
             ) from error
-        self._zero_override_installed = True
+        self._phoneme_override_installed = True
 
     def _health(self, healthy: bool, detail: str) -> TtsHealth:
         return TtsHealth(
