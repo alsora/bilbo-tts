@@ -5,7 +5,13 @@ model_id: ResembleAI/chatterbox
 model:
   engine: chatterbox
   revision: 5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18
+model_license:
+  spdx_identifier: MIT
+  source_url: https://github.com/resemble-ai/chatterbox/blob/65b18437192794391a0308a8f705b1e33e633948/LICENSE
 code_revision: 65b18437192794391a0308a8f705b1e33e633948
+code_license:
+  spdx_identifier: MIT
+  source_url: https://github.com/resemble-ai/chatterbox/blob/65b18437192794391a0308a8f705b1e33e633948/LICENSE
 voice:
   voice_id: builtin
 settings:

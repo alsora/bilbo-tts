@@ -7,6 +7,7 @@ import yaml
 from pydantic import ValidationError
 
 from bilbo_tts.qualification.candidates import (
+    AsrCandidateConfig,
     CandidateConfigurationError,
     TtsCandidateConfig,
     candidate_path,
@@ -85,14 +86,61 @@ def test_committed_candidate_pins_and_backend_policy() -> None:
     assert chatterbox.model_id == "ResembleAI/chatterbox"
     assert chatterbox.model.revision == "5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18"
     assert chatterbox.code_revision == "65b18437192794391a0308a8f705b1e33e633948"
+    chatterbox_license = chatterbox.model_license
+    assert chatterbox_license is not None
+    assert chatterbox_license.spdx_identifier == "MIT"
+    assert chatterbox.code_license == chatterbox_license
     assert chatterbox.inference_parameters["t3_model"] == "v3"
     assert chatterbox.inference_parameters["cfg_weight"] == 0.5
     assert chatterbox.voice.reference_path is None
     assert kokoro.model_id == "mlx-community/Kokoro-82M-bf16"
     assert kokoro.voice.voice_id == "if_sara"
     assert kokoro.settings.temperature is None
+    kokoro_license = kokoro.model_license
+    assert kokoro_license is not None
+    assert kokoro_license.spdx_identifier == "Apache-2.0"
     assert asr.model_id == "mlx-community/whisper-large-v3-turbo"
     assert asr.revision == "a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb"
+    assert asr.model_license.spdx_identifier == "MIT"
+    assert asr.model_license.source_url == "https://github.com/openai/whisper/blob/main/LICENSE"
+
+
+@pytest.mark.parametrize(
+    "name",
+    (
+        "chatterbox",
+        "chatterbox-fp16",
+        "chatterbox-nowm",
+        "chatterbox-turbo",
+        "kokoro",
+        "kokoro-nicola-s120",
+    ),
+)
+def test_every_committed_production_candidate_has_required_license_metadata(name: str) -> None:
+    candidate = load_tts_candidate(candidate_path(ROOT, name))
+
+    assert candidate.model_license is not None
+    if candidate.code_revision is not None:
+        assert candidate.code_license is not None
+
+
+def test_production_candidates_reject_missing_or_unpaired_license_metadata() -> None:
+    candidate = load_tts_candidate(candidate_path(ROOT, "chatterbox"))
+    payload = candidate.model_dump(mode="json")
+    payload.pop("model_license")
+    with pytest.raises(ValidationError, match="require model_license"):
+        TtsCandidateConfig.model_validate(payload)
+
+    payload = candidate.model_dump(mode="json")
+    payload.pop("code_license")
+    with pytest.raises(ValidationError, match="require code_license"):
+        TtsCandidateConfig.model_validate(payload)
+
+    asr = load_asr_candidate(candidate_path(ROOT, "asr"))
+    payload = asr.model_dump(mode="json")
+    payload.pop("model_license")
+    with pytest.raises(ValidationError, match="model_license"):
+        AsrCandidateConfig.model_validate(payload)
 
 
 def test_candidate_rejects_mismatched_identity_and_non_json_values() -> None:

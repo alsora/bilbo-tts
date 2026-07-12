@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Self, cast
+from typing import Annotated, Literal, Self, cast
 
 import yaml
 from pydantic import (
     Field,
     JsonValue,
+    StringConstraints,
     TypeAdapter,
     ValidationError,
     field_validator,
@@ -26,10 +27,25 @@ from bilbo_tts.models import (
 from bilbo_tts.serialization import canonical_json_bytes
 
 CandidateEngine = Literal["fake", "chatterbox", "kokoro"]
+SpdxIdentifier = Annotated[
+    str,
+    StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9.+-]*$"),
+]
+AuthoritativeUrl = Annotated[
+    str,
+    StringConstraints(pattern=r"^https://[^/\s]+/\S+$"),
+]
 
 
 class CandidateConfigurationError(ValueError):
     """A qualification candidate configuration is unreadable or invalid."""
+
+
+class LicenseMetadata(ContractModel):
+    """Auditable license identity and its authoritative source."""
+
+    spdx_identifier: SpdxIdentifier
+    source_url: AuthoritativeUrl
 
 
 class TtsCandidateConfig(ContractModel):
@@ -40,7 +56,9 @@ class TtsCandidateConfig(ContractModel):
     backend: Identifier
     model_id: NonEmptyText
     model: ModelIdentity
+    model_license: LicenseMetadata | None = None
     code_revision: NonEmptyText | None = None
+    code_license: LicenseMetadata | None = None
     voice: VoiceConfig
     settings: SynthesisSettings
     inference_parameters: dict[str, JsonValue] = Field(default_factory=dict)
@@ -60,6 +78,12 @@ class TtsCandidateConfig(ContractModel):
     def identity_matches_engine(self) -> Self:
         if self.model.engine != self.engine:
             raise ValueError("model engine must match candidate engine")
+        if self.engine != "fake" and self.model_license is None:
+            raise ValueError("non-fake candidates require model_license")
+        if self.engine != "fake" and self.code_revision is not None and self.code_license is None:
+            raise ValueError("non-fake candidates with code_revision require code_license")
+        if self.code_license is not None and self.code_revision is None:
+            raise ValueError("code_license requires code_revision")
         return self
 
 
@@ -71,6 +95,7 @@ class AsrCandidateConfig(ContractModel):
     backend: Literal["mlx"] = "mlx"
     model_id: NonEmptyText
     revision: NonEmptyText
+    model_license: LicenseMetadata
     language: Literal["it"] = "it"
 
 

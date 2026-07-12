@@ -9,7 +9,11 @@ import yaml
 
 from bilbo_tts.config import VoiceConfig
 from bilbo_tts.models import ModelIdentity, SynthesisSettings
-from bilbo_tts.qualification.candidates import CandidateEngine, TtsCandidateConfig
+from bilbo_tts.qualification.candidates import (
+    CandidateEngine,
+    LicenseMetadata,
+    TtsCandidateConfig,
+)
 from bilbo_tts.qualification.corpus import (
     REQUIRED_CATEGORIES,
     CorpusCategory,
@@ -50,6 +54,14 @@ def candidate(engine: CandidateEngine) -> TtsCandidateConfig:
         backend="stdlib",
         model_id=f"tests/{engine}",
         model=ModelIdentity(engine=engine, revision="test-v1"),
+        model_license=(
+            LicenseMetadata(
+                spdx_identifier="MIT",
+                source_url="https://example.test/model/LICENSE",
+            )
+            if engine != "fake"
+            else None
+        ),
         voice=VoiceConfig(voice_id=voice_id),
         settings=SynthesisSettings(sample_rate_hz=8_000, seed=17),
         inference_parameters={"test_mode": True},

@@ -15,6 +15,13 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from bilbo_tts.assembly import AssembleSummary, assemble_book
+from bilbo_tts.build_bundle import (
+    BuildBundleResult,
+    DirectoryReplacer,
+    GitMetadataProvider,
+    create_build_bundle,
+    inspect_repository,
+)
 from bilbo_tts.chapter_selection import ChapterSelectionError, select_chapter_ids
 from bilbo_tts.chunk_service import CHUNK_MANIFEST_PATH, ChunkSummary, chunk_book
 from bilbo_tts.ingest import IngestSummary, ingest_book
@@ -43,6 +50,7 @@ RUN_REPORT_PATH = "reports/run.md"
 ESTIMATED_SPEECH_RATE_WPM: Literal[150] = 150
 SHORT_CHUNK_OUTLIER_CHARACTERS = 20
 LONG_CHUNK_OUTLIER_PERCENT = 90
+REPOSITORY_ROOT = Path(__file__).parents[2]
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -175,9 +183,11 @@ class RunSummary(ContractModel):
     synthesis: SynthesizeSummary
     verification: VerifySummary
     assembly: AssembleSummary
+    bundle_path: NonEmptyText
+    bundle_sha256: Sha256
+    bundle_reused: bool
     report_path: NonEmptyText
     report_sha256: Sha256
-    next_stage: Literal["build-bundle"] = "build-bundle"
 
     @model_validator(mode="after")
     def completed_stages_and_scope_match(self) -> RunSummary:
@@ -204,6 +214,8 @@ def run_book(
     text_only: bool = False,
     command_runner: CommandRunner = subprocess.run,
     pixi_executable: Path | None = None,
+    git_metadata_provider: GitMetadataProvider = inspect_repository,
+    bundle_directory_replacer: DirectoryReplacer = os.replace,
 ) -> TextOnlySummary | RunSummary:
     """Run ordered stages, reusing every valid artifact already present."""
 
@@ -263,9 +275,29 @@ def run_book(
         context.workspace.project_root,
         chapters=tuple(chapter.chapter_id for chapter in qualification.chapters),
     )
+    bundle = create_build_bundle(
+        context,
+        Path(_config_argument(config_path, context.workspace.project_root)),
+        ingest_summary,
+        normalize_summary,
+        chunk_summary,
+        qualification,
+        synthesis,
+        verification,
+        assembly,
+        repository_root=REPOSITORY_ROOT,
+        git_metadata_provider=git_metadata_provider,
+        directory_replacer=bundle_directory_replacer,
+    )
     report_reference = context.workspace.artifacts.write_bytes(
         RUN_REPORT_PATH,
-        render_run_report(qualification, synthesis, verification, assembly).encode("utf-8"),
+        render_run_report(
+            qualification,
+            synthesis,
+            verification,
+            assembly,
+            bundle,
+        ).encode("utf-8"),
     )
     return RunSummary(
         book_id=context.config.book_id,
@@ -274,6 +306,9 @@ def run_book(
         synthesis=synthesis,
         verification=verification,
         assembly=assembly,
+        bundle_path=bundle.path,
+        bundle_sha256=bundle.sha256,
+        bundle_reused=bundle.reused,
         report_path=report_reference.path,
         report_sha256=report_reference.sha256,
     )
@@ -364,32 +399,27 @@ def render_run_report(
     synthesis: SynthesizeSummary,
     verification: VerifySummary,
     assembly: AssembleSummary,
+    bundle: BuildBundleResult,
 ) -> str:
     """Render the deterministic handoff after successful assembly."""
 
     scope = ", ".join(f"`{chapter.chapter_id}`" for chapter in qualification.chapters)
-    return (
-        "\n".join(
-            [
-                f"# Run report: {qualification.book_id}",
-                "",
-                f"- Scope: {scope}",
-                f"- Text qualification: `{qualification.report_path}`",
-                f"- Synthesis: {synthesis.selected_count} selected; "
-                f"{synthesis.generated_count} generated; {synthesis.skipped_count} reused",
-                f"- Verification: {verification.accepted_count} accepted; "
-                f"{verification.reused_count} reused",
-                f"- Assembly: `{assembly.output_path}`",
-                f"- Assembly reused: {'yes' if assembly.reused else 'no'}",
-                "",
-                "## Next stage",
-                "",
-                "Build-bundle packaging is intentionally deferred; the validated assembly is the "
-                "single handoff input for that future stage.",
-            ]
-        )
-        + "\n"
-    )
+    lines = [
+        f"# Run report: {qualification.book_id}",
+        "",
+        f"- Scope: {scope}",
+        f"- Text qualification: `{qualification.report_path}`",
+        f"- Synthesis: {synthesis.selected_count} selected; "
+        f"{synthesis.generated_count} generated; {synthesis.skipped_count} reused",
+        f"- Verification: {verification.accepted_count} accepted; "
+        f"{verification.reused_count} reused",
+        f"- Assembly: `{assembly.output_path}`",
+        f"- Assembly reused: {'yes' if assembly.reused else 'no'}",
+        f"- Build bundle: `{bundle.path}`",
+        f"- Bundle SHA-256: `{bundle.sha256}`",
+        f"- Bundle reused: {'yes' if bundle.reused else 'no'}",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def _qualify_text(

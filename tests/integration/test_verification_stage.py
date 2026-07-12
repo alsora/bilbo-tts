@@ -10,7 +10,7 @@ import yaml
 from bilbo_tts.artifacts import ArtifactStore, StaleArtifactError
 from bilbo_tts.chunk_service import CHUNK_MANIFEST_PATH
 from bilbo_tts.models import ChunkManifest, GenerationManifest, ReviewStatus, VerificationManifest
-from bilbo_tts.qualification.candidates import AsrCandidateConfig
+from bilbo_tts.qualification.candidates import AsrCandidateConfig, LicenseMetadata
 from bilbo_tts.synthesis import GENERATION_MANIFEST_PATH, synthesize_book
 from bilbo_tts.verification import (
     VERIFICATION_MANIFEST_PATH,
@@ -192,6 +192,10 @@ def test_scoped_pass_merges_only_still_current_records(
         lambda _config, _root: AsrCandidateConfig(
             model_id=after_config.asr_model_id,
             revision="changed-revision",
+            model_license=LicenseMetadata(
+                spdx_identifier="MIT",
+                source_url="https://github.com/openai/whisper/blob/main/LICENSE",
+            ),
         ),
     )
     asr_changed = verify_book_pass(

@@ -5,6 +5,9 @@ model_id: mlx-community/Kokoro-82M-bf16
 model:
   engine: kokoro
   revision: a71e4d38b236d968966a2002c4c895dbd12b1c3c
+model_license:
+  spdx_identifier: Apache-2.0
+  source_url: https://huggingface.co/mlx-community/Kokoro-82M-bf16/blob/main/README.md
 voice:
   voice_id: im_nicola
 settings:

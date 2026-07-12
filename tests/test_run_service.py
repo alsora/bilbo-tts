@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from bilbo_tts.artifacts import ArtifactStore
 from bilbo_tts.assembly import AssembleSummary
+from bilbo_tts.build_bundle import BuildBundleResult
 from bilbo_tts.chunk_service import ChunkSummary
 from bilbo_tts.ingest import IngestSummary
 from bilbo_tts.models import (
@@ -242,6 +243,15 @@ def _patch_text_stages(
     monkeypatch.setattr(run_service, "ingest_book", record("ingest", ingest))
     monkeypatch.setattr(run_service, "normalize_book", record("normalize", normalize))
     monkeypatch.setattr(run_service, "chunk_book", record("chunk", chunk))
+    monkeypatch.setattr(
+        run_service,
+        "create_build_bundle",
+        lambda *_args, **_kwargs: BuildBundleResult(
+            path=f"deliverables/build-{'b' * 64}",
+            sha256="b" * 64,
+            reused=False,
+        ),
+    )
 
 
 def _synthesis_summary(*, status: str = "completed", generated: int = 3) -> SynthesizeSummary:
@@ -444,7 +454,10 @@ def test_full_run_uses_isolated_synthesis_then_verification_and_assembly(
     assert verification_arguments["pixi_executable"] == tmp_path / "pixi"
     assert assembly_arguments == {"chapters": ("chapter-1", "chapter-2")}
     report = (root / "work" / "book" / RUN_REPORT_PATH).read_text(encoding="utf-8")
-    assert "Build-bundle packaging is intentionally deferred" in report
+    assert summary.bundle_path == f"deliverables/build-{'b' * 64}"
+    assert summary.bundle_sha256 == "b" * 64
+    assert summary.bundle_reused is False
+    assert f"Build bundle: `deliverables/build-{'b' * 64}`" in report
 
 
 def test_second_full_run_reports_subprocess_and_assembly_reuse(

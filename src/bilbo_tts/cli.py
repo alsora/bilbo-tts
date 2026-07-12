@@ -10,6 +10,7 @@ import typer
 
 from bilbo_tts.artifacts import ArtifactError
 from bilbo_tts.assembly import AssemblyError, assemble_book
+from bilbo_tts.build_bundle import BuildBundleError
 from bilbo_tts.chunk_service import chunk_book
 from bilbo_tts.chunking import ChunkingError
 from bilbo_tts.config import ConfigurationError
@@ -202,7 +203,7 @@ def run_command(
         ),
     ] = False,
 ) -> None:
-    """Run the idempotent pipeline through text qualification or assembly."""
+    """Run the idempotent pipeline through text qualification or a build bundle."""
 
     try:
         summary = run_book(
@@ -214,6 +215,7 @@ def run_command(
     except (
         ArtifactError,
         AssemblyError,
+        BuildBundleError,
         CandidateConfigurationError,
         ChunkingError,
         ConfigurationError,
