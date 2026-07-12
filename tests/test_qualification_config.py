@@ -135,3 +135,9 @@ def test_factory_constructs_fake_and_real_adapters_lazily() -> None:
     chatterbox = load_tts_candidate(candidate_path(ROOT, "chatterbox"))
     real_engine = create_tts_engine(chatterbox, ROOT)
     assert real_engine.capabilities.engine == "chatterbox"
+
+
+def test_committed_fake_candidate_matches_the_in_code_definition() -> None:
+    committed = load_tts_candidate(candidate_path(ROOT, "fake"))
+
+    assert committed == fake_candidate()

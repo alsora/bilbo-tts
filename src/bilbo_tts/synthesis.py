@@ -10,7 +10,7 @@ from pydantic import Field
 
 from bilbo_tts.artifacts import ArtifactError, ArtifactStore
 from bilbo_tts.chunk_service import CHUNK_MANIFEST_PATH
-from bilbo_tts.config import SynthesisConfig, VoiceConfig
+from bilbo_tts.config import VoiceConfig
 from bilbo_tts.models import (
     ChunkManifest,
     ChunkRecord,
@@ -93,8 +93,7 @@ def synthesize_book(
 
     candidate = resolve_book_candidate(context.config.synthesis, context.workspace.project_root)
     identities = {
-        chunk.chunk_id: _synthesis_identity(chunk, normalized, context.config.synthesis, candidate)
-        for chunk in chunks.chunks
+        chunk.chunk_id: _synthesis_identity(chunk, normalized, candidate) for chunk in chunks.chunks
     }
     current = {
         chunk.chunk_id: _read_current_state(store, chunk, identities[chunk.chunk_id])
@@ -122,8 +121,8 @@ def synthesize_book(
                 engine,
                 chunk,
                 identity,
-                context.config.synthesis.voice,
-                context.config.synthesis.settings,
+                candidate.voice,
+                candidate.settings,
                 context.config.synthesis.max_retries,
             )
             # _generate_chunk validated and persisted this outcome, so it is
@@ -236,7 +235,6 @@ def _validate_upstream(
 def _synthesis_identity(
     chunk: ChunkRecord,
     normalized: NormalizedDocument,
-    synthesis: SynthesisConfig,
     candidate: TtsCandidateConfig,
 ) -> SynthesisIdentity:
     return SynthesisIdentity(
@@ -245,10 +243,10 @@ def _synthesis_identity(
         model=candidate.model,
         backend=backend_identity(candidate),
         voice=VoiceIdentity(
-            voice_id=synthesis.voice.voice_id,
-            reference_sha256=synthesis.voice.reference_sha256,
+            voice_id=candidate.voice.voice_id,
+            reference_sha256=candidate.voice.reference_sha256,
         ),
-        settings=synthesis.settings,
+        settings=candidate.settings,
     )
 
 

@@ -10,7 +10,7 @@ import yaml
 
 from bilbo_tts import synthesis
 from bilbo_tts.artifacts import ArtifactStore
-from bilbo_tts.config import SynthesisConfig, VoiceConfig
+from bilbo_tts.config import SynthesisConfig
 from bilbo_tts.models import (
     BreakKind,
     ChunkManifest,
@@ -22,7 +22,6 @@ from bilbo_tts.models import (
     NormalizedDocument,
     PauseMetadata,
     SynthesisIdentity,
-    SynthesisSettings,
 )
 from bilbo_tts.qualification.candidates import TtsCandidateConfig
 from bilbo_tts.synthesis import (
@@ -62,10 +61,7 @@ def make_project(
                 "normalization": {"version": "it-v1", "lexicons": []},
                 "chunking": {"max_characters": 300},
                 "synthesis": {
-                    "engine": "fake",
-                    "model_revision": "fake-v1",
-                    "voice": {"voice_id": "fake-voice"},
-                    "settings": {"sample_rate_hz": 24000, "seed": 7},
+                    "model_config_path": "config/qualification/fake.yaml",
                     "max_retries": max_retries,
                 },
             },
@@ -305,16 +301,16 @@ def test_retries_vary_the_seed_and_recover_deterministic_failures(tmp_path: Path
             return self.delegate.synthesize(request)
 
     def seed_sensitive_factory(candidate: TtsCandidateConfig, path: Path) -> TtsEngine:
-        return SeedSensitiveEngine(fake_factory(candidate, path), failing_seed=7)
+        return SeedSensitiveEngine(fake_factory(candidate, path), failing_seed=20_260_711)
 
     summary = synthesize_book(config, root, engine_factory=seed_sensitive_factory)
     record = load_manifest(store).records[0]
 
-    assert attempt_seeds == [7, 8]
+    assert attempt_seeds == [20_260_711, 20_260_712]
     assert summary.generated_count == 1
     assert summary.failed_count == 0
     assert record.retry_number == 1
-    assert record.identity.settings.seed == 7
+    assert record.identity.settings.seed == 20_260_711
 
 
 def test_chapter_range_and_force_filters_intersect(tmp_path: Path) -> None:
@@ -479,13 +475,13 @@ def test_invalid_existing_pairs_are_regenerated(
     assert len(load_manifest(store).records) == 1
 
 
-def test_wrong_model_revision_is_rejected(tmp_path: Path) -> None:
+def test_missing_model_config_is_rejected_with_its_path(tmp_path: Path) -> None:
     root, config, _store = make_project(tmp_path)
     payload = yaml.safe_load(config.read_text(encoding="utf-8"))
-    payload["synthesis"]["model_revision"] = "mutable-main"
+    payload["synthesis"]["model_config_path"] = "config/qualification/absent.yaml"
     config.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="does not match the pinned"):
+    with pytest.raises(ValueError, match="absent.yaml"):
         synthesize_book(config, root, engine_factory=fake_factory)
 
 
@@ -493,20 +489,14 @@ def test_book_candidate_resolution_is_independent_of_private_project_root(
     tmp_path: Path,
 ) -> None:
     synthesis = SynthesisConfig(
-        engine="chatterbox",
-        model_revision="5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18",
-        voice=VoiceConfig(voice_id="builtin"),
-        settings=SynthesisSettings(
-            sample_rate_hz=24_000,
-            seed=20_260_711,
-            temperature=0.8,
-        ),
+        model_config_path="config/qualification/kokoro-nicola-s120.yaml",
     )
 
     candidate = resolve_book_candidate(synthesis, tmp_path / "private-project")
 
-    assert candidate.engine == "chatterbox"
-    assert candidate.model.revision == synthesis.model_revision
+    assert candidate.engine == "kokoro"
+    assert candidate.voice.voice_id == "im_nicola"
+    assert candidate.settings.speed == 1.2
 
 
 def test_report_is_compact_and_canonical(tmp_path: Path) -> None:

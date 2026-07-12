@@ -62,10 +62,7 @@ def _project(tmp_path: Path) -> tuple[Path, Path, ArtifactStore]:
                 "normalization": {"version": "it-v1", "lexicons": []},
                 "chunking": {"max_characters": 100},
                 "synthesis": {
-                    "engine": "fixture",
-                    "model_revision": "fixture-v1",
-                    "voice": {"voice_id": "narrator"},
-                    "settings": {"sample_rate_hz": 24000, "seed": 7},
+                    "model_config_path": "config/qualification/fake.yaml",
                 },
             },
             sort_keys=False,

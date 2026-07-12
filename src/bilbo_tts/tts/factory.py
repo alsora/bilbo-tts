@@ -11,12 +11,12 @@ from bilbo_tts.config import SynthesisConfig
 from bilbo_tts.models import BackendIdentity
 from bilbo_tts.qualification.candidates import (
     TtsCandidateConfig,
-    candidate_path,
-    fake_candidate,
     load_tts_candidate,
 )
 from bilbo_tts.tts.contracts import TtsEngine, TtsError
 from bilbo_tts.tts.fake import FakeTtsEngine
+
+REPOSITORY_ROOT = Path(__file__).parents[3]
 
 
 def create_tts_engine(
@@ -50,24 +50,13 @@ def resolve_book_candidate(
     synthesis: SynthesisConfig,
     _project_root: Path,
 ) -> TtsCandidateConfig:
-    """Resolve and validate the pinned backend selected by one book."""
+    """Load the pinned candidate configuration selected by one book.
 
-    if synthesis.engine == "fake":
-        candidate = fake_candidate()
-    elif synthesis.engine in {"chatterbox", "kokoro"}:
-        repository_root = Path(__file__).parents[3]
-        candidate = load_tts_candidate(candidate_path(repository_root, synthesis.engine))
-    else:
-        raise TtsError(
-            f"unsupported synthesis engine {synthesis.engine!r}; "
-            "expected fake, chatterbox, or kokoro"
-        )
-    if candidate.model.revision != synthesis.model_revision:
-        raise TtsError(
-            f"configured model revision {synthesis.model_revision!r} does not match "
-            f"the pinned {candidate.engine} revision {candidate.model.revision!r}"
-        )
-    return candidate
+    The configured path resolves against this repository so books in private
+    project roots share the same reviewed candidate files.
+    """
+
+    return load_tts_candidate(REPOSITORY_ROOT.joinpath(*Path(synthesis.model_config_path).parts))
 
 
 def backend_identity(candidate: TtsCandidateConfig) -> BackendIdentity:

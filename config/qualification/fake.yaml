@@ -1,0 +1,17 @@
+schema_version: tts-candidate/v1
+engine: fake
+backend: stdlib
+model_id: bilbo-tts/fake
+model:
+  engine: fake
+  revision: fake-v1
+voice:
+  voice_id: fake-voice
+settings:
+  sample_rate_hz: 24000
+  seed: 20260711
+  speed: 1.0
+  temperature: null
+inference_parameters: {}
+notes:
+  - Dependency-free deterministic test engine.

@@ -21,7 +21,6 @@ from bilbo_tts.models import (
     NonEmptyText,
     Sha256,
     SourceFormat,
-    SynthesisSettings,
 )
 
 RelativePath = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -146,13 +145,20 @@ class VoiceConfig(ContractModel):
 
 
 class SynthesisConfig(ContractModel):
-    """Model and generation settings for this book."""
+    """Model selection and retry policy for this book."""
 
-    engine: Identifier
-    model_revision: NonEmptyText
-    voice: VoiceConfig
-    settings: SynthesisSettings
+    # The referenced candidate file owns the complete pinned model identity,
+    # voice, and generation settings, so books never duplicate them.
+    model_config_path: RelativePath
     max_retries: int = Field(default=2, ge=0, le=10)
+
+    @field_validator("model_config_path")
+    @classmethod
+    def model_config_is_repository_relative_yaml(cls, path: str) -> str:
+        normalized = _validate_relative_path(path)
+        if PurePosixPath(normalized).suffix.lower() not in {".yaml", ".yml"}:
+            raise ValueError("model config path must refer to a YAML file")
+        return normalized
 
 
 class PauseConfig(ContractModel):

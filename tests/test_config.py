@@ -16,7 +16,6 @@ from bilbo_tts.config import (
 )
 
 HASH_A = "a" * 64
-HASH_B = "b" * 64
 
 
 def valid_config() -> dict[str, object]:
@@ -41,18 +40,7 @@ def valid_config() -> dict[str, object]:
         },
         "chunking": {"max_characters": 300},
         "synthesis": {
-            "engine": "fake-engine",
-            "model_revision": "revision-1",
-            "voice": {
-                "voice_id": "narrator",
-                "reference_path": "voice/narrator.wav",
-                "reference_sha256": HASH_B,
-            },
-            "settings": {
-                "sample_rate_hz": 24000,
-                "seed": 42,
-                "speed": 1.0,
-            },
+            "model_config_path": "config/qualification/kokoro-nicola-s120.yaml",
             "max_retries": 2,
         },
         "assembly": {
@@ -80,8 +68,24 @@ def test_load_valid_book_config(tmp_path: Path) -> None:
     assert config.book_id == "finance-book"
     assert config.input.path == "source/book.tex"
     assert config.chunking.max_characters == 300
-    assert config.synthesis.voice.reference_sha256 == HASH_B
+    assert config.synthesis.model_config_path == "config/qualification/kokoro-nicola-s120.yaml"
     assert BookConfig.model_validate_json(config.model_dump_json()) == config
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/absolute/candidate.yaml",
+        "../outside/candidate.yaml",
+        "config/qualification/candidate.json",
+    ],
+)
+def test_model_config_path_must_be_a_relative_yaml_file(path: str) -> None:
+    payload = valid_config()
+    payload["synthesis"] = {"model_config_path": path}
+
+    with pytest.raises(ValidationError, match="path must"):
+        BookConfig.model_validate(payload)
 
 
 def test_unknown_and_incompatible_fields_are_rejected(tmp_path: Path) -> None:
