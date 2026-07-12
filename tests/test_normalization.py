@@ -212,6 +212,7 @@ def test_shared_scope_loads_from_repository_lexicon_directory(tmp_path: Path) ->
         ("ordine", "órdine", "vowel-ordine"),
         ("costosi", "costósi", "vowel-costosi"),
         ("azienda", "ad-ziènda", "consonant-azienda"),
+        ("aziende", "ad-ziènde", "consonant-aziende"),
     )
     for source, expected, entry_id in corrections:
         spoken, transformations, _ = apply_rules(source, loaded)
