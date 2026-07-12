@@ -1,0 +1,18 @@
+schema_version: tts-candidate/v1
+engine: kokoro
+backend: mlx
+model_id: mlx-community/Kokoro-82M-bf16
+model:
+  engine: kokoro
+  revision: a71e4d38b236d968966a2002c4c895dbd12b1c3c
+voice:
+  voice_id: im_nicola
+settings:
+  sample_rate_hz: 24000
+  seed: 20260711
+  speed: 1.2
+  temperature: null
+inference_parameters: {}
+notes:
+  - Variant of kokoro-nicola at speed 1.2 as the brisker bracket for pace review.
+  - Temperature is unsupported and intentionally unset.
