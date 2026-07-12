@@ -10,6 +10,14 @@ Pinned Chatterbox Multilingual V3 throughput varies materially with excerpt leng
 The private target-book estimate remains roughly 80 minutes for its shortest 133-chunk chapter and roughly 60 to 70 hours for the 6,480-chunk full book, but committed artifacts do not independently reproduce those totals.
 The approved Kokoro-82M candidates have measured near RTF 0.11 to 0.16 depending on voice and speed, an order of magnitude faster, but human review strongly preferred the Chatterbox voice.
 
+## Known Kokoro quality limitations
+
+The C7 representative-chapter review found stable unnatural internal pauses after `decisione` in `block-000020.s0009.p0000` and after `improvvisamente` in `block-000021.s0007.p0000`.
+Regenerating both chunks with retry seed 1 changed their waveform checksums but produced perceptually near-identical pause timing.
+The pauses occur inside individual Kokoro generations rather than at assembly joins or explicit punctuation boundaries.
+Checkpoint C7 accepts these two known defects so final-media validation can proceed, while their correction is deferred.
+Future work should compare exact-text TTS subchunking against a calibrated internal-silence limiter before changing source wording or introducing book-specific PCM edits.
+
 ## Where the time goes
 
 Fitting private per-chunk timing logs from the first synthesized chapter gave `generation_seconds ≈ 9.1 + 3.6 × audio_seconds`.
