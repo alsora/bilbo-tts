@@ -47,8 +47,16 @@ def lexicons() -> LoadedLexicons:
         ("È il 3º anno.", "È il terzo anno."),
         ("ETF, BCE, BTP e drawdown.", "et effe, bi ci e, bi ti pi e dròdaun."),
         ("L’INPS gestisce la previdenza.", "L’inps gestisce la previdenza."),
+        ("Un BOT a breve termine.", "Un bot a breve termine."),
         ("Un PDF.", "Un pi di effe."),
         ("Il dott. Bianchi, ecc.", "Il dottor Bianchi, eccetera"),
+        ("Ha 30 anni.", "Ha trent’anni."),
+        ("Dopo 20 anni di lavoro.", "Dopo vent’anni di lavoro."),
+        ("Tra 100 anni.", "Tra cent’anni."),
+        ("Quaranta anni dopo.", "Quarant’anni dopo."),
+        ("Un orizzonte di 25 anni.", "Un orizzonte di venticinque anni."),
+        ("Circa 2000 anni fa.", "Circa duemila anni fa."),
+        ("Per 1660 anni.", "Per milleseicentosessant’anni."),
     ],
 )
 def test_required_golden_normalization_cases(
@@ -298,11 +306,29 @@ def test_shared_scope_loads_from_repository_lexicon_directory(tmp_path: Path) ->
         ("duemiladiciannove", "duemiladiciannòve", "vowel-duemiladiciannove"),
         ("impegnandosi", "impegnando-si", "consonant-impegnandosi"),
         ("centoventisette", "centoventissètte", "compound-centoventisette"),
+        ("eroderne", "eròderne", "stress-eroderne"),
+        ("milleseicento", "mille-seicento", "compound-seicento"),
+        ("bot", "bòt", "vowel-bot"),
+        ("BOT", "bòt", "vowel-bot"),
     )
     for source, expected, entry_id in corrections:
         spoken, transformations, _ = apply_rules(source, loaded)
         assert spoken == expected
-        assert transformations[0].rule_id == f"lexicon.kokoro-it.{entry_id}"
+        assert transformations[-1].rule_id == f"lexicon.kokoro-it.{entry_id}"
+
+
+def test_integer_expansions_receive_lexicon_corrections(tmp_path: Path) -> None:
+    shared_path = SHARED_LEXICON_DIR / "kokoro-it.yaml"
+    checksum = sha256_bytes(shared_path.read_bytes())
+    loaded = load_lexicons(
+        tmp_path,
+        (LexiconConfig(path="kokoro-it.yaml", sha256=checksum, scope="shared"),),
+    )
+
+    spoken, _, warnings = apply_rules("Erano 1600 miliardi, 67 casi e 0 errori.", loaded)
+
+    assert spoken == "Erano mille-seicento miliardi, sessanta-sette casi e dzzèro errori."
+    assert warnings == ()
 
 
 def test_shared_scope_rejects_paths_escaping_the_lexicon_directory(tmp_path: Path) -> None:

@@ -160,7 +160,31 @@ entries:
     priority: 50
     case_sensitive: false
     word_boundaries: true
-    notes: espeak-ng voices the compound-internal s and closes the stressed e; the hyphen restores voiceless s and open e. Catches literals and currency, date, percentage, and ratio expansions, but not generic integer expansion, which runs after lexicons.
+    notes: espeak-ng voices the compound-internal s and closes the stressed e; the hyphen restores voiceless s and open e.
+  - entry_id: compound-seicento
+    mode: regex
+    pattern: (?<=[aeiou])seicento
+    spoken: -seicento
+    priority: 50
+    case_sensitive: false
+    word_boundaries: false
+    notes: espeak-ng voices the compound-internal s of seicento after a vowel, as in milleseicento; the hyphen restores the voiceless s while standalone seicento is already correct.
+  - entry_id: stress-eroderne
+    mode: literal
+    pattern: eroderne
+    spoken: eròderne
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng stresses the enclitic syllable as erodèrne; the explicit accent restores the open stressed o of erodere.
+  - entry_id: vowel-bot
+    mode: literal
+    pattern: bot
+    spoken: bòt
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng closes the o of the loanword bot; Italian usage has an open o. Also catches the finance lexicon's BOT-as-word replacement, which runs first at higher priority.
   - entry_id: stress-desideri
     mode: literal
     pattern: desideri

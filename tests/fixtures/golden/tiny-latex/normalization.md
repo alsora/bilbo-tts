@@ -1,7 +1,7 @@
 # Normalization report: tiny-latex
 
 - Normalization version: `it-v1`
-- Lexicon SHA-256: `98f278d0cfd972663690da8896a78f2e02af91829b257af4590b6366def39d6b`
+- Lexicon SHA-256: `74f84406884436bd6cdd781a24a7dd1c1e5ef4c944cc1ba5913088d94b08ec36`
 - Blocks: 15
 - Changed blocks: 2
 - Transformations: 6

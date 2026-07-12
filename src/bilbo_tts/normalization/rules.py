@@ -105,6 +105,9 @@ def apply_rules(
     apply("ordinal", _ordinals)
     apply("abbreviation", _abbreviations)
     apply("symbol", _symbols)
+    apply("decimal", _decimals)
+    apply("integer", _integers)
+    apply("anni-elision", _anni_elisions)
 
     before_lexicon = result
     result, lexicon_transformations = lexicons.apply(result)
@@ -112,8 +115,6 @@ def apply_rules(
         transformations.extend(lexicon_transformations)
 
     apply("acronym", _acronyms)
-    apply("decimal", _decimals)
-    apply("integer", _integers)
     apply("whitespace", _canonical_whitespace)
 
     warnings = _unresolved_warnings(result)
@@ -380,6 +381,26 @@ def _integers(text: str) -> str:
         lambda match: _number_token(match.group(0)),
         text,
     )
+
+
+# A written Italian cardinal is one uninterrupted concatenation of these morphemes.
+_CARDINAL_MORPHEME = (
+    "(?:diciassette|diciannove|diciotto|quattordici|quindici|sedici|tredici|undici|dodici|"
+    "dieci|quattro|cinque|sette|sei|otto|nove|due|tré|tre|uno|un|"
+    "venti?|trenta?|quaranta?|cinquanta?|sessanta?|settanta?|ottanta?|novanta?|"
+    "cento?|mille|mila)"
+)
+# Standard Italian elides cardinals ending in venti, -anta, or cento before "anni",
+# for example trent'anni; other endings such as venticinque or duemila do not elide.
+_ANNI_ELISION = re.compile(
+    rf"(?<!\w)({_CARDINAL_MORPHEME}*"
+    r"(?:venti|trenta|quaranta|cinquanta|sessanta|settanta|ottanta|novanta|cento)) anni(?!\w)",
+    re.IGNORECASE,
+)
+
+
+def _anni_elisions(text: str) -> str:
+    return _ANNI_ELISION.sub(lambda match: f"{match.group(1)[:-1]}’anni", text)
 
 
 def _number_token(token: str) -> str:

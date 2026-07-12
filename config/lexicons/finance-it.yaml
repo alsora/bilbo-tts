@@ -9,6 +9,14 @@ entries:
     case_sensitive: true
     word_boundaries: true
     notes: Banca centrale europea.
+  - entry_id: acronimo-bot
+    mode: literal
+    pattern: BOT
+    spoken: bot
+    priority: 100
+    case_sensitive: true
+    word_boundaries: true
+    notes: Buono ordinario del Tesoro; pronounced as a word.
   - entry_id: acronimo-btp
     mode: literal
     pattern: BTP
