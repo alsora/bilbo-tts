@@ -39,8 +39,12 @@ class ChunkingError(ValueError):
     """Normalized text cannot be split without violating chunk contracts."""
 
 
-def split_sentences(text: str) -> tuple[str, ...]:
-    """Split Italian prose while protecting common abbreviations and initials."""
+def split_sentences(text: str, *, split_at_colons: bool = False) -> tuple[str, ...]:
+    """Split Italian prose while protecting common abbreviations and initials.
+
+    With ``split_at_colons`` enabled, a colon followed by whitespace also ends
+    a sentence so the next clause receives an explicit assembly pause.
+    """
 
     protected = text
     for abbreviation in sorted(_ABBREVIATIONS, key=len, reverse=True):
@@ -55,7 +59,8 @@ def split_sentences(text: str) -> tuple[str, ...]:
         rf"\1{_PROTECTED_PERIOD}",
         protected,
     )
-    pieces = re.split(r"(?<=[.!?])\s+", protected.strip())
+    boundary = r"(?<=[.!?:])\s+" if split_at_colons else r"(?<=[.!?])\s+"
+    pieces = re.split(boundary, protected.strip())
     return tuple(piece.replace(_PROTECTED_PERIOD, ".").strip() for piece in pieces if piece.strip())
 
 
@@ -95,6 +100,7 @@ def build_chunk_manifest(
     max_characters: int,
     pauses: PauseConfig,
     pack_sentences: bool = False,
+    split_at_colons: bool = False,
 ) -> ChunkManifest:
     """Map normalized blocks to stable, ordered synthesis chunks.
 
@@ -102,6 +108,8 @@ def build_chunk_manifest(
     greedily merged up to ``max_characters`` so fewer chunks amortize the
     per-chunk synthesis overhead; merged chunks keep the pause of their first
     sentence and intra-chunk sentence pauses come from the model's prosody.
+    With ``split_at_colons`` enabled, colons also end sentences so the next
+    clause receives an explicit assembly sentence pause.
     """
 
     if document.book_id != normalized.book_id:
@@ -125,8 +133,8 @@ def build_chunk_manifest(
     for chapter in document.chapters:
         for block_index, source_block in enumerate(chapter.blocks):
             block = normalized_by_id[source_block.block_id]
-            spoken_sentences = split_sentences(block.spoken_text)
-            display_sentences = split_sentences(block.display_text)
+            spoken_sentences = split_sentences(block.spoken_text, split_at_colons=split_at_colons)
+            display_sentences = split_sentences(block.display_text, split_at_colons=split_at_colons)
             if not spoken_sentences:
                 raise ChunkingError(f"block {block.block_id} contains no spoken sentences")
             displays_align = len(display_sentences) == len(spoken_sentences)

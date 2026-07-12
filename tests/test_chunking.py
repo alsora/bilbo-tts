@@ -92,6 +92,68 @@ def test_sentence_splitting_protects_italian_abbreviations_and_initials() -> Non
     )
 
 
+def test_colon_splitting_is_opt_in_and_ends_sentences_at_colons() -> None:
+    text = "Tutto ruota intorno al denaro: il lavoro, gli acquisti. Ore 12:30 e rapporto 60:40."
+
+    assert split_sentences(text) == (
+        "Tutto ruota intorno al denaro: il lavoro, gli acquisti.",
+        "Ore 12:30 e rapporto 60:40.",
+    )
+    assert split_sentences(text, split_at_colons=True) == (
+        "Tutto ruota intorno al denaro:",
+        "il lavoro, gli acquisti.",
+        "Ore 12:30 e rapporto 60:40.",
+    )
+
+
+def test_colon_splitting_gives_the_following_clause_a_sentence_pause() -> None:
+    document, normalized = _documents()
+    with_colon = "Prima parte: seconda parte. Altra frase."
+    updated_blocks = tuple(
+        block.model_copy(update={"display_text": with_colon, "spoken_text": with_colon})
+        if block.block_id == "block-1"
+        else block
+        for block in normalized.blocks
+    )
+    normalized = normalized.model_copy(update={"blocks": updated_blocks})
+    chapters = tuple(
+        chapter.model_copy(
+            update={
+                "blocks": tuple(
+                    block.model_copy(update={"display_text": with_colon})
+                    if block.block_id == "block-1"
+                    else block
+                    for block in chapter.blocks
+                )
+            }
+        )
+        for chapter in document.chapters
+    )
+    document = document.model_copy(update={"chapters": chapters})
+
+    manifest = build_chunk_manifest(
+        document,
+        normalized,
+        book_document_sha256=BOOK_REFERENCE_SHA256,
+        normalized_document_sha256=NORMALIZED_REFERENCE_SHA256,
+        max_characters=60,
+        pauses=PauseConfig(sentence_ms=250, paragraph_ms=600, chapter_ms=1500),
+        split_at_colons=True,
+    )
+    block_one = [chunk for chunk in manifest.chunks if chunk.paragraph_id == "block-1"]
+
+    assert [chunk.spoken_text for chunk in block_one] == [
+        "Prima parte:",
+        "seconda parte.",
+        "Altra frase.",
+    ]
+    assert [chunk.pause.break_before for chunk in block_one] == [
+        BreakKind.CHAPTER,
+        BreakKind.SENTENCE,
+        BreakKind.SENTENCE,
+    ]
+
+
 def test_limit_split_honors_exact_boundary_and_rejects_overlong_word() -> None:
     assert split_to_limit("12345", 5) == ("12345",)
     assert split_to_limit("12345 6789", 5) == ("12345", "6789")

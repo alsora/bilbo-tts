@@ -282,6 +282,9 @@ A single word longer than the configured limit fails with an actionable error ra
 Optional `chunking.pack_sentences: true` greedily merges adjacent whole sentences of one block up to `max_characters`, amortizing per-chunk synthesis overhead.
 A packed chunk keeps the configured pause of its first sentence, and pauses between its merged sentences come from the model's prosody instead of `assembly.pauses.sentence_ms`.
 Enabling packing changes every chunk identity, so an existing book regenerates all audio; decide before large synthesis runs.
+Optional `chunking.split_at_colons: true` also ends a sentence at a colon followed by whitespace, so the next clause receives the explicit `assembly.pauses.sentence_ms` pause.
+Use it when the selected engine renders colon pauses much shorter than a narrator would; Kokoro measures near 80 ms.
+Time and ratio colons such as `12:30` are unaffected because they contain no whitespace, and enabling the option renumbers sentence identities so affected audio regenerates.
 
 Generate the complete chunk and pause report for the representative chapter:
 

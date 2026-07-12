@@ -118,6 +118,11 @@ class ChunkingConfig(ContractModel):
     # Packing amortizes per-chunk model overhead; it changes chunk identities,
     # so enabling it on an existing book regenerates all audio.
     pack_sentences: bool = False
+    # Kokoro renders a colon pause near 80 ms, far shorter than a narrator,
+    # so this treats a colon as a sentence boundary and the following clause
+    # receives the explicit assembly sentence pause. Enabling it on an
+    # existing book renumbers sentences and regenerates affected audio.
+    split_at_colons: bool = False
 
 
 class VoiceConfig(ContractModel):
