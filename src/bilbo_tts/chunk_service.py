@@ -239,7 +239,9 @@ def _chunk_anomalies(manifest: ChunkManifest, max_characters: int) -> list[str]:
             if previous.paragraph_id != chunk.paragraph_id:
                 expected_break = "paragraph"
             elif previous.sentence_id != chunk.sentence_id:
-                expected_break = "sentence"
+                expected_break = (
+                    "clause" if previous.spoken_text.rstrip().endswith(":") else "sentence"
+                )
             else:
                 expected_break = "none"
         if chunk.pause.break_before.value != expected_break:

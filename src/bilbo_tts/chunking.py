@@ -109,7 +109,7 @@ def build_chunk_manifest(
     per-chunk synthesis overhead; merged chunks keep the pause of their first
     sentence and intra-chunk sentence pauses come from the model's prosody.
     With ``split_at_colons`` enabled, colons also end sentences so the next
-    clause receives an explicit assembly sentence pause.
+    clause receives its shorter explicit assembly clause pause.
     """
 
     if document.book_id != normalized.book_id:
@@ -161,6 +161,9 @@ def build_chunk_manifest(
                         block_index=block_index,
                         sentence_index=start,
                         part_index=part_index,
+                        clause_boundary=(
+                            start > 0 and spoken_sentences[start - 1].rstrip().endswith(":")
+                        ),
                         pauses=pauses,
                     )
                     chunk_id = f"{sentence_id}.p{part_index:04d}"
@@ -237,6 +240,7 @@ def _pause_for(
     block_index: int,
     sentence_index: int,
     part_index: int,
+    clause_boundary: bool,
     pauses: PauseConfig,
 ) -> PauseMetadata:
     if part_index:
@@ -245,4 +249,6 @@ def _pause_for(
         return PauseMetadata(break_before=BreakKind.CHAPTER, duration_ms=pauses.chapter_ms)
     if sentence_index == 0:
         return PauseMetadata(break_before=BreakKind.PARAGRAPH, duration_ms=pauses.paragraph_ms)
+    if clause_boundary:
+        return PauseMetadata(break_before=BreakKind.CLAUSE, duration_ms=pauses.clause_ms)
     return PauseMetadata(break_before=BreakKind.SENTENCE, duration_ms=pauses.sentence_ms)

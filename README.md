@@ -282,7 +282,7 @@ A single word longer than the configured limit fails with an actionable error ra
 Optional `chunking.pack_sentences: true` greedily merges adjacent whole sentences of one block up to `max_characters`, amortizing per-chunk synthesis overhead.
 A packed chunk keeps the configured pause of its first sentence, and pauses between its merged sentences come from the model's prosody instead of `assembly.pauses.sentence_ms`.
 Enabling packing changes every chunk identity, so an existing book regenerates all audio; decide before large synthesis runs.
-Optional `chunking.split_at_colons: true` also ends a sentence at a colon followed by whitespace, so the next clause receives the explicit `assembly.pauses.sentence_ms` pause.
+Optional `chunking.split_at_colons: true` also ends a sentence at a colon followed by whitespace, so the next clause receives the shorter explicit `assembly.pauses.clause_ms` pause.
 Use it when the selected engine renders colon pauses much shorter than a narrator would; Kokoro measures near 80 ms.
 Time and ratio colons such as `12:30` are unaffected because they contain no whitespace, and enabling the option renumbers sentence identities so affected audio regenerates.
 
@@ -717,6 +717,7 @@ Configure pauses, loudness targets and tolerances, and the mono AAC bitrate in `
 ```yaml
 assembly:
   pauses:
+    clause_ms: 150
     sentence_ms: 250
     paragraph_ms: 600
     chapter_ms: 1500
@@ -760,6 +761,7 @@ The current canonical evidence is written to `manifests/assembly-manifest.json`,
 Assembly validates each WAV and checksum, streams lossless PCM and explicit silence into one timeline, derives sample-accurate chapter markers, applies two-pass EBU R128 loudness normalization, and performs one AAC encode.
 The final M4B is not published until FFprobe confirms its codec, channel count, sample rate, duration, metadata, optional cover art, and chapter timestamps.
 A post-encode FFmpeg measurement must satisfy the configured integrated-loudness and true-peak tolerances.
+The second pass reserves the configured true-peak tolerance as AAC encode headroom because lossy encoding can raise inter-sample peaks.
 The manifest records exact inputs, commands, tool versions, loudness measurements, chapter ranges, probed media metadata, and the final checksum.
 An unchanged rerun validates and reuses the existing output, while `--force` intentionally re-encodes it.
 

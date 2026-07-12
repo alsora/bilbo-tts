@@ -176,13 +176,19 @@ def assemble_book(
             _ffmetadata(context.config.metadata, markers, sample_rate),
             encoding="utf-8",
         )
+        # Lossy AAC can overshoot the filtered PCM true peak. Use the configured
+        # validation tolerance as deterministic encode headroom, then measure
+        # the encoded stream against the user-facing target.
+        normalization_peak = (
+            context.config.assembly.true_peak_db - context.config.assembly.true_peak_tolerance_db
+        )
 
         commands: list[MediaCommand] = []
         analysis_command = _analysis_command(
             ffmpeg,
             pcm_path,
             context.config.assembly.loudness_lufs,
-            context.config.assembly.true_peak_db,
+            normalization_peak,
         )
         analysis_result = _checked(analysis_command, runner, "FFmpeg loudness analysis")
         analysis_raw = _parse_loudnorm_json(analysis_result.stderr)
@@ -203,7 +209,7 @@ def assemble_book(
             encoded_path,
             cover_path,
             context.config.assembly.loudness_lufs,
-            context.config.assembly.true_peak_db,
+            normalization_peak,
             context.config.assembly.aac_bitrate_kbps,
             sample_rate,
             analysis_raw,

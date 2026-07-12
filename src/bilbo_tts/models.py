@@ -54,6 +54,7 @@ class BreakKind(StrEnum):
     """Pause inserted before a synthesized chunk."""
 
     NONE = "none"
+    CLAUSE = "clause"
     SENTENCE = "sentence"
     PARAGRAPH = "paragraph"
     CHAPTER = "chapter"

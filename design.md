@@ -102,6 +102,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - [`config/lexicons/finance-it.yaml`](config/lexicons/finance-it.yaml): the always-active versioned finance lexicon, with validated literal/regex entries, word boundaries, priority, optional case sensitivity, spoken replacement, and notes. Checksum-pinned overlays apply in listed order from either the book directory or, with `scope: shared`, the versioned `config/lexicons/` directory, and model-specific exceptions remain in separately named overlays such as [`config/lexicons/kokoro-it.yaml`](config/lexicons/kokoro-it.yaml).
 - [`src/bilbo_tts/chunking.py`](src/bilbo_tts/chunking.py): paragraph-first, sentence-aware splitting with an explicit character limit; preserve `break_before` rather than inserting silence into generated clips. Add model-specific phoneme limits only after C4 qualifies an engine and its counting behavior.
 - When an over-limit sentence can fit into two chunks, prefer a semicolon or colon over a comma while avoiding fragments shorter than one quarter of the configured limit; otherwise split at the latest available punctuation and then fall back to whitespace.
+- When opt-in colon splitting creates an explicit boundary, label it as a clause break and use the shorter configured clause pause instead of the full sentence pause.
 - [`src/bilbo_tts/tts/`](src/bilbo_tts/tts/): a narrow engine interface plus Chatterbox and Kokoro adapters.
 - TTS engines return native-rate mono signed 16-bit little-endian PCM with exact frame-count and duration metadata.
 - The synthesize stage stores each chunk at `work/<book-id>/audio/<chunk-id>/<cache-key>.wav` with an adjacent generation-record sidecar.
@@ -115,6 +116,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - Full-book media is written to `work/<book-id>/media/<book-id>.m4b`, while chapter-scoped checkpoint media includes the stable chapter identifier.
 - The final-media manifest records exact input and output checksums, normalized FFmpeg and FFprobe commands and versions, sample-accurate chapter ranges, all loudness measurements, and probed container metadata.
 - Final media uses mono AAC at the configured bitrate, maps title/author/subtitle/narrator to stable M4B tags, and optionally attaches the configured JPEG or PNG cover.
+- The loudness second pass reserves the configured true-peak tolerance as AAC headroom, then validates the encoded stream against the user-facing target and tolerance.
 - Assembly publishes media atomically only after post-encode loudness measurement and FFprobe validation satisfy the configured duration, loudness, true-peak, stream, metadata, cover, and chapter requirements.
 - [`books/<book-id>/book.yaml`](books/<book-id>/book.yaml): input, title/author, a model config path selecting one candidate under `config/qualification/`, retry policy, thresholds, pause durations, loudness target, and cover settings.
 - A book never duplicates model identity, voice, or generation settings; the referenced candidate file owns them, so books switch models by changing one repository-relative path.

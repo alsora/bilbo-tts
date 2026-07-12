@@ -60,6 +60,7 @@ def valid_config() -> dict[str, object]:
         },
         "assembly": {
             "pauses": {
+                "clause_ms": 150,
                 "sentence_ms": 250,
                 "paragraph_ms": 600,
                 "chapter_ms": 1500,
@@ -89,6 +90,7 @@ def test_load_valid_book_config(tmp_path: Path) -> None:
     assert config.synthesis.model_config_path == "config/qualification/kokoro-nicola-s120.yaml"
     assert config.verification.max_auto_retries == 2
     assert config.verification.thresholds.max_wer == 0.45
+    assert config.assembly.pauses.clause_ms == 150
     assert config.assembly.loudness_tolerance_lu == 0.5
     assert config.assembly.true_peak_tolerance_db == 0.5
     assert config.assembly.aac_bitrate_kbps == 64

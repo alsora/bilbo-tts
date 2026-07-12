@@ -106,7 +106,7 @@ def test_colon_splitting_is_opt_in_and_ends_sentences_at_colons() -> None:
     )
 
 
-def test_colon_splitting_gives_the_following_clause_a_sentence_pause() -> None:
+def test_colon_splitting_gives_the_following_clause_a_shorter_clause_pause() -> None:
     document, normalized = _documents()
     with_colon = "Prima parte: seconda parte. Altra frase."
     updated_blocks = tuple(
@@ -149,9 +149,10 @@ def test_colon_splitting_gives_the_following_clause_a_sentence_pause() -> None:
     ]
     assert [chunk.pause.break_before for chunk in block_one] == [
         BreakKind.CHAPTER,
-        BreakKind.SENTENCE,
+        BreakKind.CLAUSE,
         BreakKind.SENTENCE,
     ]
+    assert [chunk.pause.duration_ms for chunk in block_one] == [1500, 150, 250]
 
 
 def test_limit_split_honors_exact_boundary_and_rejects_overlong_word() -> None:

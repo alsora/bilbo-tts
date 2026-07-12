@@ -119,9 +119,9 @@ class ChunkingConfig(ContractModel):
     # so enabling it on an existing book regenerates all audio.
     pack_sentences: bool = False
     # Kokoro renders a colon pause near 80 ms, far shorter than a narrator,
-    # so this treats a colon as a sentence boundary and the following clause
-    # receives the explicit assembly sentence pause. Enabling it on an
-    # existing book renumbers sentences and regenerates affected audio.
+    # so this treats a colon as a boundary and gives the following clause its
+    # own explicit assembly pause. Enabling it on an existing book renumbers
+    # sentences and regenerates affected audio.
     split_at_colons: bool = False
 
 
@@ -205,6 +205,7 @@ class VerificationConfig(ContractModel):
 class PauseConfig(ContractModel):
     """Pause durations used during final assembly."""
 
+    clause_ms: int = Field(default=150, gt=0)
     sentence_ms: int = Field(default=250, gt=0)
     paragraph_ms: int = Field(default=600, gt=0)
     chapter_ms: int = Field(default=1500, gt=0)
