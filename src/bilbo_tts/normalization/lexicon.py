@@ -38,6 +38,7 @@ class LexiconEntry(ContractModel):
     priority: int = 0
     case_sensitive: bool = False
     word_boundaries: bool = True
+    phoneme_override: NonEmptyText | None = None
     notes: NonEmptyText | None = None
 
     @model_validator(mode="after")
@@ -66,6 +67,29 @@ class PronunciationLexicon(ContractModel):
         if len(ids) != len(set(ids)):
             raise ValueError("lexicon entry_id values must be unique")
         return entries
+
+    @model_validator(mode="after")
+    def phoneme_override_markers_are_unambiguous(self) -> Self:
+        overrides: dict[str, str] = {}
+        for entry in self.entries:
+            if entry.phoneme_override is None:
+                continue
+            existing = overrides.get(entry.spoken)
+            if existing is not None and existing != entry.phoneme_override:
+                raise ValueError(
+                    f"conflicting phoneme_override values for spoken marker {entry.spoken!r}"
+                )
+            overrides[entry.spoken] = entry.phoneme_override
+        return self
+
+    def phoneme_overrides(self) -> dict[str, str]:
+        """Return the spoken marker to reviewed phoneme mapping for TTS adapters."""
+
+        return {
+            entry.spoken: entry.phoneme_override
+            for entry in self.entries
+            if entry.phoneme_override is not None
+        }
 
 
 class LoadedLexicon(ContractModel):
@@ -112,6 +136,12 @@ class LoadedLexicons(ContractModel):
                     )
                 )
         return result, tuple(transformations)
+
+
+def load_shared_lexicon(filename: str) -> LoadedLexicon:
+    """Load one reviewed lexicon from the repository's shared directory."""
+
+    return _load_path(SHARED_LEXICON_DIR / filename, f"shared:{filename}")
 
 
 def load_lexicons(book_dir: Path, configured: tuple[LexiconConfig, ...]) -> LoadedLexicons:

@@ -45,6 +45,7 @@ entries:
 At equal priority, entries from later-listed overlays apply before earlier lexicons, so an overlay can take precedence over the built-in finance lexicon.
 `case_sensitive` defaults to false.
 `word_boundaries` defaults to true and prevents matches inside larger words.
+`phoneme_override` is an optional reviewed phoneme sequence applied by the Kokoro adapter after G2P; see [Phoneme overrides](#phoneme-overrides-when-no-respelling-works).
 Use `notes` to record what was wrong and why the replacement fixes it, because lexicons are reviewed data.
 Unknown fields are rejected with an actionable validation error.
 
@@ -90,6 +91,32 @@ Iterate on the spelling until the phoneme string is correct, then confirm with o
 Chatterbox has no phoneme stage and reads raw text through a learned tokenizer, so a respelling only nudges the model.
 Verify a Chatterbox entry by synthesizing one sentence containing the word and listening, then adjust the phonetic Italian respelling until it sounds right.
 Accented phonetic respellings such as `compiùter` are a good starting point.
+
+## Phoneme overrides when no respelling works
+
+A few Italian pronunciations cannot be produced by any spelling, for example a plain voiced `dz` onset for `zero` or the long palatal lateral `ʎː` in `meglio`.
+For those cases an entry in the shared `config/lexicons/kokoro-it.yaml` overlay combines a unique marker respelling with a reviewed phoneme sequence:
+
+```yaml
+  - entry_id: consonant-zero
+    mode: literal
+    pattern: zero
+    spoken: dzzèro
+    phoneme_override: dzˈɛro
+    notes: Kokoro weakens its ordinary zero onset toward s; the reviewed dz sequence replaces the marker's phonemes after G2P.
+```
+
+Normalization rewrites the word to the marker `spoken` text as with any other entry.
+When the Kokoro adapter sees a marker in the request text, it phonemizes the marker in isolation, then replaces that phoneme sequence with the `phoneme_override` value in the ordinary G2P output.
+Deriving the source phonemes at synthesis time keeps the overlay as the single reviewed source of truth and cannot drift from the pinned espeak-ng behavior.
+
+Craft the marker so it is unique, cannot occur in ordinary text, and already sounds close to the target, because the marker's ordinary rendering is kept wherever the replacement does not apply.
+Replacement is best-effort: espeak-ng can render a marker differently inside a clause than in isolation, for example reducing the final unstressed vowel of `impegnando-si` mid-sentence, and those occurrences keep their ordinary phonemes.
+Author the `phoneme_override` value in the same phoneme alphabet that the espeak-ng verification snippet above prints, and confirm the result with one short synthesis and a listening check.
+The opt-in hardware test `tests/hardware/test_kokoro_smoke.py` pins the isolation-versus-clause-final derivation assumption for every override entry.
+
+Two entries may share one marker only when they declare the same `phoneme_override`, and conflicting values are rejected at load time.
+Because the override changes generated audio without changing the synthesis cache key, regenerate the chunks containing the marker after editing an override value.
 
 Verification compares ASR transcripts against the final `spoken_text`, so a respelled loanword registers a small expected WER hit on chunks that contain it.
 Treat that as known noise when reviewing verification reports rather than as a synthesis regression.

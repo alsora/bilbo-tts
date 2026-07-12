@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from importlib import import_module
 from pathlib import Path
 from typing import NamedTuple, Protocol, cast
 
+from bilbo_tts.normalization.lexicon import LexiconError, load_shared_lexicon
 from bilbo_tts.qualification.candidates import TtsCandidateConfig
 from bilbo_tts.tts.audio import float_samples_to_pcm_s16le
 from bilbo_tts.tts.contracts import (
@@ -33,40 +34,7 @@ WEIGHT_FILES = [
     "voices/im_nicola.safetensors",
 ]
 _GENERATION_LOCK = threading.Lock()
-_ZERO_MARKER = "dzzèro"
-_ZERO_SOURCE_PHONEMES = "dʦʦˈɛro"
-_ZERO_TARGET_PHONEMES = "dzˈɛro"
-_AZIENDA_MARKER = "ad-ziènda"
-_AZIENDA_SOURCE_PHONEMES = "adʣjˈɛnda"
-_AZIENDA_TARGET_PHONEMES = "adzjˈɛnda"
-_AZIENDE_MARKER = "ad-ziènde"
-_AZIENDE_SOURCE_PHONEMES = "adʣjˈɛnde"
-_AZIENDE_TARGET_PHONEMES = "adzjˈɛnde"
-_MEGLIO_MARKER = "mèllio"
-_MEGLIO_SOURCE_PHONEMES = "mˈɛllio"
-_MEGLIO_TARGET_PHONEMES = "mˈɛʎːo"
-_IMPEGNANDOSI_MARKER = "impegnando-si"
-_IMPEGNANDOSI_SOURCE_PHONEMES = "impeɲˈandosˈi"
-_IMPEGNANDOSI_TARGET_PHONEMES = "impeɲˈandosi"
-_CENTOVENTISETTE_MARKER = "centoventissètte"
-_CENTOVENTISETTE_SOURCE_PHONEMES = "ʧentoventiSˈɛtːe"
-_CENTOVENTISETTE_TARGET_PHONEMES = "ʧentoventisˈɛtːe"
-_PHONEME_OVERRIDES = (
-    (_ZERO_SOURCE_PHONEMES, _ZERO_TARGET_PHONEMES),
-    (_AZIENDA_SOURCE_PHONEMES, _AZIENDA_TARGET_PHONEMES),
-    (_AZIENDE_SOURCE_PHONEMES, _AZIENDE_TARGET_PHONEMES),
-    (_MEGLIO_SOURCE_PHONEMES, _MEGLIO_TARGET_PHONEMES),
-    (_IMPEGNANDOSI_SOURCE_PHONEMES, _IMPEGNANDOSI_TARGET_PHONEMES),
-    (_CENTOVENTISETTE_SOURCE_PHONEMES, _CENTOVENTISETTE_TARGET_PHONEMES),
-)
-_PHONEME_OVERRIDE_MARKERS = (
-    _ZERO_MARKER,
-    _AZIENDA_MARKER,
-    _AZIENDE_MARKER,
-    _MEGLIO_MARKER,
-    _IMPEGNANDOSI_MARKER,
-    _CENTOVENTISETTE_MARKER,
-)
+OVERRIDE_LEXICON_FILENAME = "kokoro-it.yaml"
 
 
 class _Metal(Protocol):
@@ -143,10 +111,20 @@ class _Dependencies(NamedTuple):
 
 
 class _ReviewedOverridePhonemizer:
-    """Replace reviewed pronunciation markers after ordinary Italian G2P."""
+    """Replace reviewed pronunciation markers after ordinary Italian G2P.
 
-    def __init__(self, base: _Phonemizer) -> None:
+    Each marker's source phonemes are derived by phonemizing the marker in
+    isolation, so the substitution can never drift from the pinned espeak-ng
+    behavior. Replacement is best-effort because espeak-ng may render a
+    marker differently in running context (for example a word-final
+    unstressed vowel), in which case the marker's ordinary phonemes are kept.
+    """
+
+    def __init__(self, base: _Phonemizer, overrides: Mapping[str, str]) -> None:
         self._base = base
+        self._replacements = tuple(
+            (base.phonemize(marker)[0], target) for marker, target in overrides.items()
+        )
 
     def phonemize(self, text: str) -> tuple[str, list[int]]:
         phonemes, _ids = self._base.phonemize(text)
@@ -160,7 +138,7 @@ class _ReviewedOverridePhonemizer:
 
     def _replace(self, phonemes: str) -> tuple[str, list[int]]:
         corrected = phonemes
-        for source, target in _PHONEME_OVERRIDES:
+        for source, target in self._replacements:
             corrected = corrected.replace(source, target)
         return corrected, self._ids_from_phonemes(corrected)
 
@@ -173,6 +151,7 @@ class KokoroTtsEngine:
         self._candidate = candidate
         self._model: _KokoroModel | None = None
         self._model_lock = threading.Lock()
+        self._phoneme_overrides = _load_phoneme_overrides()
         self._phoneme_override_installed = False
         self._capabilities = TtsCapabilities(
             engine=ENGINE,
@@ -218,7 +197,7 @@ class KokoroTtsEngine:
         if not dependencies.mlx.metal.is_available():
             raise TtsError("kokoro requires MLX Metal on Apple Silicon")
         model = self._load_model(dependencies)
-        if any(marker in request.spoken_text for marker in _PHONEME_OVERRIDE_MARKERS):
+        if any(marker in request.spoken_text for marker in self._phoneme_overrides):
             self._install_phoneme_overrides(model)
         try:
             with _GENERATION_LOCK:
@@ -255,12 +234,13 @@ class KokoroTtsEngine:
     def _install_phoneme_overrides(self, model: _KokoroModel) -> None:
         if self._phoneme_override_installed:
             return
+        overrides = self._phoneme_overrides
         phonemizable = cast(_PhonemizableKokoroModel, model)
         try:
             original = phonemizable._get_phonemizer
 
             def overridden(language: str, voice: str) -> _Phonemizer:
-                return _ReviewedOverridePhonemizer(original(language, voice))
+                return _ReviewedOverridePhonemizer(original(language, voice), overrides)
 
             phonemizable._get_phonemizer = overridden  # type: ignore[method-assign]
         except (AttributeError, TypeError) as error:
@@ -308,6 +288,16 @@ def create_engine(candidate: TtsCandidateConfig, _project_root: Path) -> KokoroT
     """Construct the lazy Kokoro adapter."""
 
     return KokoroTtsEngine(candidate)
+
+
+def _load_phoneme_overrides() -> dict[str, str]:
+    """Load reviewed marker-to-phoneme overrides from the shared Kokoro overlay."""
+
+    try:
+        loaded = load_shared_lexicon(OVERRIDE_LEXICON_FILENAME)
+    except LexiconError as error:
+        raise TtsError(f"cannot load the reviewed Kokoro pronunciation overlay: {error}") from error
+    return loaded.lexicon.phoneme_overrides()
 
 
 def _import_dependencies() -> _Dependencies:

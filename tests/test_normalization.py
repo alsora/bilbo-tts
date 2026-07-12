@@ -367,3 +367,32 @@ def test_lexicon_checksum_and_schema_are_validated(tmp_path: Path) -> None:
     )
     with pytest.raises(LexiconError, match="checksum mismatch"):
         load_lexicons(tmp_path, (LexiconConfig(path="bad.yaml", sha256="0" * 64),))
+
+
+def test_phoneme_override_markers_must_agree(tmp_path: Path) -> None:
+    def entry(entry_id: str, override: str) -> str:
+        return (
+            f"  - entry_id: {entry_id}\n"
+            "    mode: literal\n"
+            f"    pattern: {entry_id}\n"
+            "    spoken: marcatóre\n"
+            f"    phoneme_override: {override}\n"
+        )
+
+    path = tmp_path / "overrides.yaml"
+    header = "schema_version: pronunciation-lexicon/v1\nlexicon_id: overrides\nentries:\n"
+    path.write_text(header + entry("uno", "ˈuno") + entry("due", "ˈdue"), encoding="utf-8")
+    with pytest.raises(LexiconError, match="conflicting phoneme_override"):
+        load_lexicons(
+            tmp_path,
+            (LexiconConfig(path="overrides.yaml", sha256=sha256_bytes(path.read_bytes())),),
+        )
+
+    path.write_text(header + entry("uno", "ˈuno") + entry("due", "ˈuno"), encoding="utf-8")
+    loaded = load_lexicons(
+        tmp_path,
+        (LexiconConfig(path="overrides.yaml", sha256=sha256_bytes(path.read_bytes())),),
+    )
+
+    assert loaded.lexicons[1].lexicon.phoneme_overrides() == {"marcatóre": "ˈuno"}
+    assert loaded.lexicons[0].lexicon.phoneme_overrides() == {}

@@ -357,15 +357,27 @@ class FakeKokoroResult:
         self.sample_rate = sample_rate
 
 
-class FakePhonemizer:
-    def phonemize(self, _text: str) -> tuple[str, list[int]]:
-        return (
-            "prima dʦʦˈɛro, adʣjˈɛnda, adʣjˈɛnde, mˈɛllio, impeɲˈandosˈi, e ʧentoventiSˈɛtːe dopo",
-            [1],
-        )
+FAKE_MARKER_PHONEMES = {
+    "dzzèro": "dʦʦˈɛro",
+    "ad-ziènda": "adʣjˈɛnda",
+    "ad-ziènde": "adʣjˈɛnde",
+    "mèllio": "mˈɛllio",
+    "impegnando-si": "impeɲˈandosˈi",
+    "centoventissètte": "ʧentoventiSˈɛtːe",
+}
 
-    def phonemize_long(self, _text: str) -> list[tuple[str, list[int]]]:
-        return [self.phonemize(_text)]
+
+class FakePhonemizer:
+    """Mimic espeak-ng where each marker phonemizes identically in isolation and context."""
+
+    def phonemize(self, text: str) -> tuple[str, list[int]]:
+        phonemes = text
+        for marker, source in FAKE_MARKER_PHONEMES.items():
+            phonemes = phonemes.replace(marker, source)
+        return phonemes, self._ids_from_phonemes(phonemes)
+
+    def phonemize_long(self, text: str) -> list[tuple[str, list[int]]]:
+        return [self.phonemize(text)]
 
     def _ids_from_phonemes(self, phonemes: str) -> list[int]:
         return [ord(character) for character in phonemes]
@@ -1008,12 +1020,25 @@ def test_kokoro_success_uses_pinned_snapshot_seed_settings_and_pcm(
     assert result.settings == config.settings
 
 
-def test_kokoro_markers_receive_reviewed_phoneme_sequences() -> None:
-    phonemizer = kokoro_adapter._ReviewedOverridePhonemizer(FakePhonemizer())
+def test_kokoro_overlay_declares_expected_phoneme_overrides() -> None:
+    assert kokoro_adapter._load_phoneme_overrides() == {
+        "dzzèro": "dzˈɛro",
+        "ad-ziènda": "adzjˈɛnda",
+        "ad-ziènde": "adzjˈɛnde",
+        "mèllio": "mˈɛʎːo",
+        "impegnando-si": "impeɲˈandosi",
+        "centoventissètte": "ʧentoventisˈɛtːe",
+    }
 
-    markers = "dzzèro, ad-ziènda, ad-ziènde, mèllio, impegnando-si, e centoventissètte"
-    phonemes, token_ids = phonemizer.phonemize(markers)
-    long = phonemizer.phonemize_long(f"prima {markers} dopo")
+
+def test_kokoro_markers_receive_reviewed_phoneme_sequences() -> None:
+    phonemizer = kokoro_adapter._ReviewedOverridePhonemizer(
+        FakePhonemizer(), kokoro_adapter._load_phoneme_overrides()
+    )
+
+    text = "prima dzzèro, ad-ziènda, ad-ziènde, mèllio, impegnando-si, e centoventissètte dopo"
+    phonemes, token_ids = phonemizer.phonemize(text)
+    long = phonemizer.phonemize_long(text)
 
     assert phonemes == (
         "prima dzˈɛro, adzjˈɛnda, adzjˈɛnde, mˈɛʎːo, impeɲˈandosi, e ʧentoventisˈɛtːe dopo"
@@ -1022,20 +1047,48 @@ def test_kokoro_markers_receive_reviewed_phoneme_sequences() -> None:
     assert long == [(phonemes, token_ids)]
 
 
+def test_kokoro_context_variant_marker_keeps_ordinary_phonemes() -> None:
+    class ContextVariantPhonemizer(FakePhonemizer):
+        """Render the pronoun marker with a reduced final vowel in running context."""
+
+        def phonemize(self, text: str) -> tuple[str, list[int]]:
+            if text == "impegnando-si a restituirlo":
+                phonemes = "impeɲˈandosɪ a restitʊˈirlo"
+                return phonemes, self._ids_from_phonemes(phonemes)
+            return super().phonemize(text)
+
+    phonemizer = kokoro_adapter._ReviewedOverridePhonemizer(
+        ContextVariantPhonemizer(), kokoro_adapter._load_phoneme_overrides()
+    )
+
+    phonemes, _ids = phonemizer.phonemize("impegnando-si a restituirlo")
+
+    assert phonemes == "impeɲˈandosɪ a restitʊˈirlo"
+
+
+def test_kokoro_missing_overlay_error_is_actionable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(kokoro_adapter, "OVERRIDE_LEXICON_FILENAME", "missing-overlay.yaml")
+    with pytest.raises(TtsError, match="reviewed Kokoro pronunciation overlay"):
+        kokoro_adapter._load_phoneme_overrides()
+
+
 @pytest.mark.parametrize(
-    "marker",
+    "marker,corrected_phonemes",
     [
-        "dzzèro",
-        "ad-ziènda",
-        "ad-ziènde",
-        "mèllio",
-        "impegnando-si",
-        "centoventissètte",
+        ("dzzèro", "dzˈɛro"),
+        ("ad-ziènda", "adzjˈɛnda"),
+        ("ad-ziènde", "adzjˈɛnde"),
+        ("mèllio", "mˈɛʎːo"),
+        ("impegnando-si", "impeɲˈandosi"),
+        ("centoventissètte", "ʧentoventisˈɛtːe"),
     ],
 )
 def test_kokoro_engine_installs_phoneme_overrides_only_for_marker(
     monkeypatch: pytest.MonkeyPatch,
     marker: str,
+    corrected_phonemes: str,
 ) -> None:
     dependencies, _hub, _loader, model, _numpy, _events = kokoro_dependencies()
     monkeypatch.setattr(kokoro_adapter, "_import_dependencies", lambda: dependencies)
@@ -1049,9 +1102,7 @@ def test_kokoro_engine_installs_phoneme_overrides_only_for_marker(
     corrected = model._get_phonemizer("it", "if_sara")
 
     assert isinstance(corrected, kokoro_adapter._ReviewedOverridePhonemizer)
-    assert corrected.phonemize(marker)[0] == (
-        "prima dzˈɛro, adzjˈɛnda, adzjˈɛnde, mˈɛʎːo, impeɲˈandosi, e ʧentoventisˈɛtːe dopo"
-    )
+    assert corrected.phonemize(f"prima {marker} dopo")[0] == f"prima {corrected_phonemes} dopo"
 
 
 @pytest.mark.parametrize(

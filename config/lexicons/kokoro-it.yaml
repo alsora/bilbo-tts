@@ -104,7 +104,8 @@ entries:
     priority: 50
     case_sensitive: false
     word_boundaries: true
-    notes: The marker receives a reviewed voiced dz sequence in the Kokoro adapter, avoiding both the weak ordinary onset and an overlong affricate.
+    phoneme_override: adzjˈɛnda
+    notes: The reviewed voiced dz sequence replaces the marker's phonemes after G2P, avoiding both the weak ordinary onset and an overlong affricate.
   - entry_id: consonant-aziende
     mode: literal
     pattern: aziende
@@ -112,7 +113,8 @@ entries:
     priority: 50
     case_sensitive: false
     word_boundaries: true
-    notes: The marker receives a reviewed voiced dz sequence in the Kokoro adapter, avoiding both the weak ordinary onset and an overlong affricate.
+    phoneme_override: adzjˈɛnde
+    notes: The reviewed voiced dz sequence replaces the marker's phonemes after G2P, avoiding both the weak ordinary onset and an overlong affricate.
   - entry_id: consonant-meglio
     mode: literal
     pattern: meglio
@@ -120,7 +122,8 @@ entries:
     priority: 50
     case_sensitive: false
     word_boundaries: true
-    notes: The marker receives a reviewed long palatal lateral in the Kokoro adapter instead of the glide-like mejo rendering.
+    phoneme_override: mˈɛʎːo
+    notes: The reviewed long palatal lateral replaces the marker's phonemes after G2P instead of the glide-like mejo rendering.
   - entry_id: consonant-impegnandosi
     mode: literal
     pattern: impegnandosi
@@ -128,7 +131,8 @@ entries:
     priority: 50
     case_sensitive: false
     word_boundaries: true
-    notes: The marker receives the reviewed voiceless pronoun s without adding a second stress in the Kokoro adapter.
+    phoneme_override: impeɲˈandosi
+    notes: The reviewed voiceless pronoun s without a second stress replaces the marker's phonemes after G2P.
   - entry_id: compound-centoventisette
     mode: literal
     pattern: centoventisette
@@ -136,7 +140,8 @@ entries:
     priority: 50
     case_sensitive: false
     word_boundaries: true
-    notes: The marker receives a reviewed voiceless s and open stressed e in the Kokoro adapter.
+    phoneme_override: ʧentoventisˈɛtːe
+    notes: The reviewed voiceless s and open stressed e replace the marker's phonemes after G2P.
   - entry_id: vowel-duemiladiciannove
     mode: literal
     pattern: duemiladiciannove
@@ -216,4 +221,5 @@ entries:
     priority: 50
     case_sensitive: false
     word_boundaries: true
-    notes: Kokoro weakens its ordinary zero onset toward s and renders a text-only d-plus-affricate override too strongly; this marker receives the reviewed dz phoneme sequence in the Kokoro adapter.
+    phoneme_override: dzˈɛro
+    notes: Kokoro weakens its ordinary zero onset toward s and renders a text-only d-plus-affricate respelling too strongly; the reviewed dz sequence replaces the marker's phonemes after G2P.
