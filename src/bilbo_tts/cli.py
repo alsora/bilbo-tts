@@ -34,6 +34,7 @@ from bilbo_tts.review_service import (
     write_chunk_review,
     write_extraction_review,
 )
+from bilbo_tts.run_service import RunError, run_book
 from bilbo_tts.serialization import canonical_json_bytes
 from bilbo_tts.stages import StageError
 from bilbo_tts.synthesis import SynthesisError, synthesize_book
@@ -178,6 +179,52 @@ def chunk(
         StageError,
     ) as error:
         _fail_stage("chunk-summary/v1", error)
+
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+
+
+@app.command("run")
+def run_command(
+    config: ConfigArgument,
+    project_root: ProjectRootOption = Path("."),
+    chapter: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--chapter",
+            help="Run this chapter; repeat in manifest order for a contiguous scope.",
+        ),
+    ] = None,
+    text_only: Annotated[
+        bool,
+        typer.Option(
+            "--text-only",
+            help="Stop after selected-scope text qualification, before model stages.",
+        ),
+    ] = False,
+) -> None:
+    """Run the idempotent pipeline through text qualification or assembly."""
+
+    try:
+        summary = run_book(
+            config,
+            project_root,
+            chapters=tuple(chapter) if chapter else None,
+            text_only=text_only,
+        )
+    except (
+        ArtifactError,
+        AssemblyError,
+        CandidateConfigurationError,
+        ChunkingError,
+        ConfigurationError,
+        IngestionError,
+        LexiconError,
+        NormalizationError,
+        RunError,
+        StageError,
+        VerificationError,
+    ) as error:
+        _fail_stage("text-only-summary/v1" if text_only else "run-summary/v1", error)
 
     typer.echo(canonical_json_bytes(summary).decode("utf-8"))
 
