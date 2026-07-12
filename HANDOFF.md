@@ -3,7 +3,7 @@
 ## Current state
 
 - The active branch is `milestone/c7-m4b-assembly`.
-- Milestone 7 assembly is committed as `7c5f369`.
+- Milestone 7 assembly is committed as `7c5f369`, with the listening-driven clause-pause and AAC peak-headroom correction as `95a82b6`.
 - `bilbo assemble` now validates accepted current generations, streams sample-accurate PCM and configured pauses, creates chapter metadata, runs two-pass FFmpeg loudness normalization with one AAC encode, and validates the result with FFprobe.
 - The assembly manifest records exact inputs, commands and tool versions, loudness evidence, chapter ranges, probed metadata, overrides, and the final checksum.
 - Full-book and chapter-scoped outputs are idempotent, optional cover art is supported, and missing, failed, corrupt, wrong-format, mixed-rate, stale, or unaccepted inputs block by default.
@@ -12,13 +12,14 @@
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 316 ordinary tests, 3 expected hardware skips, and 91.46 percent coverage.
+- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 316 ordinary tests, 3 expected hardware skips, and 91.47 percent coverage.
 - Model-free integration tests encode and probe both covered and coverless M4B fixtures and prove unchanged reruns are no-ops.
 - The private chapter build includes all 156 accepted chunks with no override and reuses its validated output on rerun.
-- The chapter M4B is mono AAC at 24 kHz and 64 kbps with one chapter marker and a probed duration of 1354.200 seconds.
-- Post-encode loudness is -18.05 LUFS with -1.59 dBTP true peak, within the configured -18.0 ± 0.5 LU and -2.0 + 0.5 dB tolerances.
-- The chapter output SHA-256 is `424ae2fabcef759b2add7e4035adaa7faaaf90a2ea494b50e355e84501679404`.
-- The assembly manifest SHA-256 is `e23a17289af33e8212e5724928c02ae5b855b459235309ad45c9729e0e6182a0`, and the report SHA-256 is `99af44e4a5fdab6494f4313bb98f1e301e4778a2fc8441a12345546e182663cf`.
+- The first listening pass found the explicit 250 ms colon pauses slightly too long; colon boundaries now use a distinct 150 ms clause pause without regenerating speech audio.
+- The revised chapter M4B is mono AAC at 24 kHz and 64 kbps with one chapter marker and a probed duration of 1351.600 seconds.
+- Post-encode loudness is -18.05 LUFS with -2.08 dBTP true peak, within the configured -18.0 ± 0.5 LU and -2.0 + 0.5 dB tolerances.
+- The revised chapter output SHA-256 is `037e6a87c8f88bcd114f9e489ed5ccf074b78109ac64883ee5bef0bf71ec39ed`.
+- The revised assembly manifest SHA-256 is `f759de19030f76a5168e0cbb450bb9f0696a53a037ce1432b241299ac5473bab`, and the report SHA-256 is `27242f744335c0fdd725e65aa3d2021a63cebd4dafa53ba12344af14bd259115`.
 - The C7 listening checkpoint is still pending and must not be described as accepted.
 
 ## Durable references
