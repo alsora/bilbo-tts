@@ -134,7 +134,7 @@ The LaTeX adapter infers the chapter heading level from the presence of parts so
 PDF and part-free LaTeX level-one headings start chapters, while lower-level headings remain ordered document blocks.
 Content before the first level-one heading becomes front matter, and a source without chapter headings uses the configured book title.
 Headings, paragraphs, list items, quotations, captions, and footnotes remain narratable blocks in source order.
-Tables are linearized with a review warning, and equations remain equation blocks with a warning until deterministic speech normalization is available.
+Tables are linearized with a review warning, and equations remain equation blocks while normalization removes their extraction warning only when bounded deterministic rules resolve all notation.
 Bibliography and reference sections, unsupported raw blocks, and images without captions become explicit exclusion records.
 Stable chapter and block identifiers derive from canonical source order rather than mutable display text.
 
@@ -149,7 +149,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - [`src/bilbo_tts/cli.py`](src/bilbo_tts/cli.py): pipeline commands `ingest`, `normalize`, `chunk`, `synthesize`, `verify`, `assemble`, and an idempotent `run`, plus chapter-scoped `review-extraction` and `review-chunking` commands.
 - [`src/bilbo_tts/models.py`](src/bilbo_tts/models.py): Pydantic definitions for all manifests and sidecars.
 - [`src/bilbo_tts/ingest/`](src/bilbo_tts/ingest/): Pandoc AST adapter for LaTeX; PyMuPDF4LLM adapter for born-digital PDF; reject or explicitly route scanned PDFs to OCR.
-- [`src/bilbo_tts/normalization/`](src/bilbo_tts/normalization/): deterministic, ordered Italian rules for Unicode cleanup, dehyphenation, percentages, decimals, ratios, currencies, ordinals, symbols, abbreviations, and lexicon replacement using `num2words(lang="it")`.
+- [`src/bilbo_tts/normalization/`](src/bilbo_tts/normalization/): deterministic, ordered Italian rules for Unicode cleanup, dehyphenation, bounded LaTeX notation, percentages, decimals, ratios, currencies, ordinals, symbols, abbreviations, and lexicon replacement using `num2words(lang="it")`.
 - [`config/lexicons/finance-it.yaml`](config/lexicons/finance-it.yaml): the always-active versioned finance lexicon, with validated literal/regex entries, word boundaries, priority, optional case sensitivity, spoken replacement, and notes. Checksum-pinned overlays apply in listed order from either the book directory or, with `scope: shared`, the versioned `config/lexicons/` directory, and model-specific exceptions remain in separately named overlays such as [`config/lexicons/kokoro-it.yaml`](config/lexicons/kokoro-it.yaml).
 - [`src/bilbo_tts/chunking.py`](src/bilbo_tts/chunking.py): paragraph-first, sentence-aware splitting with an explicit character limit; preserve `break_before` rather than inserting silence into generated clips. Add model-specific phoneme limits only after C4 qualifies an engine and its counting behavior.
 - When an over-limit sentence can fit into two chunks, prefer a semicolon or colon over a comma while avoiding fragments shorter than one quarter of the configured limit; otherwise split at the latest available punctuation and then fall back to whitespace.

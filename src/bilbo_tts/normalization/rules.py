@@ -58,6 +58,11 @@ _LETTER_NAMES = {
     "z": "zeta",
 }
 _NUMBER = r"-?(?:(?:\d{1,3}(?:\.\d{3})+)(?:,\d+)?|\d+,\d+|\d+\.\d+|\d+)"
+_CURRENCY_NAMES = {
+    "€": ("euro", "euro"),
+    "$": ("dollaro", "dollari"),
+    "£": ("sterlina", "sterline"),
+}
 
 
 def apply_rules(
@@ -82,12 +87,17 @@ def apply_rules(
 
     apply("unicode-cleanup", _unicode_cleanup)
     apply("dehyphenation", _dehyphenate)
+    apply("latex-cleanup", _latex_cleanup)
+    apply("latex-operator", _latex_operators)
+    apply("latex-script", _latex_scripts)
     if equation:
         apply("equation-fraction", _equation_fractions)
         apply("equation-operators", _equation_operators)
         apply("equation-identifiers", _equation_identifiers)
     apply("date", _dates)
     apply("section-reference", _section_references)
+    apply("currency-range", _currency_ranges)
+    apply("percentage-range", _percentage_ranges)
     apply("range", _ranges)
     apply("percentage", _percentages)
     apply("currency", _currencies)
@@ -106,7 +116,7 @@ def apply_rules(
     apply("integer", _integers)
     apply("whitespace", _canonical_whitespace)
 
-    warnings = _unresolved_warnings(result, equation=equation)
+    warnings = _unresolved_warnings(result)
     return result, tuple(transformations), warnings
 
 
@@ -122,6 +132,59 @@ def _unicode_cleanup(text: str) -> str:
 
 def _dehyphenate(text: str) -> str:
     return re.sub(r"(?<=\w)-[ \t]*\n[ \t]*(?=\w)", "", text)
+
+
+def _latex_cleanup(text: str) -> str:
+    text = re.sub(r"\\(?:begin|end)\s*\{equation\*?\}", " ", text)
+    text = re.sub(r"\\label\s*\{[^{}]*\}", " ", text)
+    text = re.sub(r"\\text\s*\{([^{}]*)\}", r"\1", text)
+    text = re.sub(r"(?<=\d)\{,\}(?=\d)", ",", text)
+    text = re.sub(r"\\(?:qquad|quad)(?![A-Za-z])", " ", text)
+    return re.sub(r"\\[,;:!]", "", text)
+
+
+def _latex_operators(text: str) -> str:
+    replacements = (
+        (r"\\(?:times|cdot)(?![A-Za-z])|[×·]", " per "),
+        (r"\\div(?![A-Za-z])|÷", " diviso "),
+        (r"\\approx(?![A-Za-z])|≈", " circa uguale a "),
+        (r"\\(?:rightarrow|to)(?![A-Za-z])|→", " porta a "),
+        (r"\\euro(?![A-Za-z])", " € "),
+        (r"\\%", "%"),
+    )
+    for pattern, replacement in replacements:
+        text = re.sub(pattern, replacement, text)
+    return text
+
+
+def _latex_scripts(text: str) -> str:
+    subscript = re.compile(r"(?<!\w)([A-Za-z])_(?:\{([A-Za-z]|\d+)\}|([A-Za-z]|\d+)(?!\w))")
+    letter_exponent = re.compile(r"(?<!\w)([A-Za-z])\^(?:\{([A-Za-z]|\d+)\}|([A-Za-z]|\d+)(?!\w))")
+    exponent = re.compile(r"\^(?:\{([A-Za-z]|\d+)\}|([A-Za-z]|\d+)(?!\w))")
+
+    def script_value(match: re.Match[str], *groups: int) -> str:
+        value = next(match.group(group) for group in groups if match.group(group) is not None)
+        return _LETTER_NAMES[value.lower()] if value.isalpha() else value
+
+    text = subscript.sub(
+        lambda match: (
+            f"{_LETTER_NAMES[match.group(1).lower()]} con pedice {script_value(match, 2, 3)}"
+        ),
+        text,
+    )
+    text = letter_exponent.sub(
+        lambda match: (
+            f"{_LETTER_NAMES[match.group(1).lower()]} elevato alla {script_value(match, 2, 3)}"
+        ),
+        text,
+    )
+
+    def replace_exponent(match: re.Match[str]) -> str:
+        value = script_value(match, 1, 2)
+        preposition = "alla" if value in _LETTER_NAMES.values() else "a"
+        return f" elevato {preposition} {value}"
+
+    return exponent.sub(replace_exponent, text)
 
 
 def _equation_fractions(text: str) -> str:
@@ -195,8 +258,30 @@ def _section_references(text: str) -> str:
     return pattern.sub(replace, text)
 
 
+def _currency_ranges(text: str) -> str:
+    pattern = re.compile(rf"(?<!\w)({_NUMBER})\s*(?:--|[–—-])\s*({_NUMBER})\s*([€$£])")
+
+    def replace(match: re.Match[str]) -> str:
+        end_value = _parse_number(match.group(2))
+        singular, plural = _CURRENCY_NAMES[match.group(3)]
+        unit = singular if abs(end_value) == 1 else plural
+        return f"{_number_token(match.group(1))} a {_number_token(match.group(2))} {unit}"
+
+    return pattern.sub(replace, text)
+
+
+def _percentage_ranges(text: str) -> str:
+    pattern = re.compile(rf"(?<!\w)({_NUMBER})\s*(?:--|[–—-])\s*({_NUMBER})\s*%")
+    return pattern.sub(
+        lambda match: (
+            f"{_number_token(match.group(1))} a {_number_token(match.group(2))} per cento"
+        ),
+        text,
+    )
+
+
 def _ranges(text: str) -> str:
-    pattern = re.compile(rf"(?<![\w/])({_NUMBER})\s*[–—-]\s*({_NUMBER})(?![\w/])")
+    pattern = re.compile(rf"(?<![\w/])({_NUMBER})\s*(?:--|[–—-])\s*({_NUMBER})(?![\w/])")
     return pattern.sub(
         lambda match: f"{_number_token(match.group(1))} a {_number_token(match.group(2))}",
         text,
@@ -209,17 +294,12 @@ def _percentages(text: str) -> str:
 
 
 def _currencies(text: str) -> str:
-    symbol_names = {
-        "€": ("euro", "euro"),
-        "$": ("dollaro", "dollari"),
-        "£": ("sterlina", "sterline"),
-    }
     after = re.compile(rf"(?<!\w)({_NUMBER})\s*([€$£])")
     before = re.compile(rf"([€$£])\s*({_NUMBER})(?!\w)")
 
     def spoken(amount: str, symbol: str) -> str:
         value = _parse_number(amount)
-        singular, plural = symbol_names[symbol]
+        singular, plural = _CURRENCY_NAMES[symbol]
         unit = singular if abs(value) == 1 else plural
         whole = int(value)
         fraction = int((abs(value) - abs(whole)) * 100)
@@ -234,11 +314,12 @@ def _currencies(text: str) -> str:
 
 
 def _ratios(text: str) -> str:
-    pattern = re.compile(r"(?<!\d)(-?\d+)\s*/\s*(-?\d+)(?!\d)")
-    return pattern.sub(
-        lambda match: f"{_number_token(match.group(1))} a {_number_token(match.group(2))}",
-        text,
-    )
+    pattern = re.compile(r"(?<![\d/])(-?\d+)\s*/\s*(-?\d+)(?:\s*/\s*(-?\d+))?(?![\d/])")
+
+    def replace(match: re.Match[str]) -> str:
+        return " a ".join(_number_token(value) for value in match.groups() if value is not None)
+
+    return pattern.sub(replace, text)
 
 
 def _ordinals(text: str) -> str:
@@ -333,9 +414,9 @@ def _canonical_whitespace(text: str) -> str:
     return text.strip()
 
 
-def _unresolved_warnings(text: str, *, equation: bool) -> tuple[str, ...]:
+def _unresolved_warnings(text: str) -> tuple[str, ...]:
     warnings: list[str] = []
-    if equation and (re.search(r"\\[A-Za-z]+|[{}_^]", text) is not None):
+    if re.search(r"\\[A-Za-z]+|[{}_^]", text) is not None:
         warnings.append("unresolved-math: unsupported equation notation remains in spoken text")
     symbols = "".join(sorted(set(re.findall(r"[<>@#%€$£]", text))))
     if symbols:

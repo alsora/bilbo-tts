@@ -267,7 +267,8 @@ The manifest preserves the complete display text, spoken text, and transformatio
 The review report summarizes rules and warnings, omits unchanged warning-free blocks, and shows final spoken text with only the minimal span changed by each rule.
 Normalization preserves typographic apostrophes and quotation marks produced by rendered source text.
 Apostrophe and quote variants are canonicalized later for ASR comparison rather than rewritten in `spoken_text`.
-Specific Italian patterns such as dates, ratios, percentages, currencies, ranges, section references, and bounded equations run before generic number expansion.
+Specific Italian patterns such as dates, multi-part ratios, percentages, currencies, symbol-bearing ranges, section references, and bounded LaTeX equations run before generic number expansion.
+Bounded LaTeX handling removes equation wrappers, labels, and spacing commands, unwraps simple `\text{...}` groups, and speaks common operators, arrows, identifier scripts, escaped percentages, and euros.
 Decimal fractional parts are pronounced as grouped numbers, so `0,25%` becomes `zero virgola venticinque per cento`.
 Unsupported mathematical notation remains visible and produces an `unresolved-math` warning instead of guessed speech.
 

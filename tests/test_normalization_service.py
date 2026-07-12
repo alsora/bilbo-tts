@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -23,7 +24,11 @@ from bilbo_tts.normalization.service import (
 )
 
 
-def _book_document(text: str = "L'ETF rende il 5%.") -> BookDocument:
+def _book_document(
+    text: str = "L'ETF rende il 5%.",
+    *,
+    kind: BlockKind = BlockKind.PARAGRAPH,
+) -> BookDocument:
     return BookDocument(
         book_id="book",
         source_format=SourceFormat.LATEX,
@@ -36,7 +41,7 @@ def _book_document(text: str = "L'ETF rende il 5%.") -> BookDocument:
                 blocks=(
                     DocumentBlock(
                         block_id="block-1",
-                        kind=BlockKind.PARAGRAPH,
+                        kind=kind,
                         display_text=text,
                         source=SourceLocation(source_path="source/main.tex"),
                     ),
@@ -108,6 +113,50 @@ def test_normalization_report_omits_unchanged_warning_free_blocks(tmp_path: Path
     assert "- Unchanged, warning-free blocks omitted: 1" in report
     assert "## Blocks requiring review\n\n- None." in report
     assert "Testo invariato." not in report
+
+
+def test_normalize_book_resolves_latex_ranges_and_three_part_ratios(
+    tmp_path: Path,
+) -> None:
+    source = r"15.000--100.000 \euro; 35--40\%; 50/30/20."
+    root, config_path, store = _project(tmp_path)
+    store.write(DOCUMENT_PATH, _book_document(source))
+
+    summary = normalize_book(config_path, root)
+
+    normalized = store.read(NORMALIZED_PATH, NormalizedDocument)
+    spoken = normalized.blocks[0].spoken_text
+    assert spoken == (
+        "quindicimila a centomila euro; trentacinque a quaranta per cento; "
+        "cinquanta a trenta a venti."
+    )
+    assert re.search(r"[\\{}%€]", spoken) is None
+    assert normalized.blocks[0].warnings == ()
+    assert summary.warning_count == 0
+
+
+def test_normalize_book_resolves_supported_latex_equation_notation(
+    tmp_path: Path,
+) -> None:
+    source = (
+        r"\begin{equation} \text{Valore atteso}: "
+        r"C_n \approx C_0 \times 99{,}75^n "
+        r"\label{eq:valore} \end{equation}"
+    )
+    root, config_path, store = _project(tmp_path)
+    store.write(DOCUMENT_PATH, _book_document(source, kind=BlockKind.EQUATION))
+
+    summary = normalize_book(config_path, root)
+
+    normalized = store.read(NORMALIZED_PATH, NormalizedDocument)
+    spoken = normalized.blocks[0].spoken_text
+    assert spoken == (
+        "Valore atteso: ci con pedice enne circa uguale a ci con pedice zero "
+        "per novantanove virgola settantacinque elevato alla enne"
+    )
+    assert re.search(r"[\\{}%€]", spoken) is None
+    assert normalized.blocks[0].warnings == ()
+    assert summary.warning_count == 0
 
 
 def test_normalized_artifact_becomes_stale_when_document_changes(tmp_path: Path) -> None:

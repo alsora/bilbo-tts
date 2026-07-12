@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -106,7 +107,7 @@ def test_equation_rules_are_bounded_and_warn_for_unsupported_math(
         equation=True,
     )
     unsupported, _, unsupported_warnings = apply_rules(
-        r"x^2 = y",
+        r"\sqrt{x} = y",
         lexicons,
         equation=True,
     )
@@ -114,10 +115,74 @@ def test_equation_rules_are_bounded_and_warn_for_unsupported_math(
     assert spoken == "erre uguale a utile diviso capitale"
     assert warnings == ()
     assert transformations[0].rule_id == "equation-fraction"
-    assert unsupported == "ics^due uguale a ipsilon"
+    assert unsupported == r"\sqrt{ics} uguale a ipsilon"
     assert unsupported_warnings == (
         "unresolved-math: unsupported equation notation remains in spoken text",
     )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected", "equation"),
+    [
+        (
+            r"\begin{equation} C_n = C_0 \times r^n "
+            r"\label{eq:capitalizzazione} \end{equation}",
+            "ci con pedice enne uguale a ci con pedice zero per erre elevato alla enne",
+            True,
+        ),
+        (
+            r"\text{Valore atteso}\quad \approx 99{,}75",
+            "Valore atteso circa uguale a novantanove virgola settantacinque",
+            True,
+        ),
+        (
+            r"C_0\,\rightarrow\quad C_n; 100 \div 4",
+            "ci con pedice zero porta a ci con pedice enne; cento diviso quattro",
+            True,
+        ),
+        (
+            r"15.000--100.000 \euro",
+            "quindicimila a centomila euro",
+            False,
+        ),
+        (
+            r"35--40\%",
+            "trentacinque a quaranta per cento",
+            False,
+        ),
+        ("50/30/20", "cinquanta a trenta a venti", False),
+    ],
+)
+def test_latex_regressions_from_selected_chapters(
+    source: str,
+    expected: str,
+    equation: bool,
+    lexicons: LoadedLexicons,
+) -> None:
+    spoken, _, warnings = apply_rules(source, lexicons, equation=equation)
+    repeated, repeated_transformations, repeated_warnings = apply_rules(
+        spoken,
+        lexicons,
+        equation=equation,
+    )
+
+    assert spoken == expected
+    assert warnings == ()
+    assert re.search(r"[\\{}%€]", spoken) is None
+    assert repeated == spoken
+    assert repeated_transformations == ()
+    assert repeated_warnings == ()
+
+
+def test_unsupported_latex_remains_visible_and_warned(
+    lexicons: LoadedLexicons,
+) -> None:
+    source = r"Formula \sqrt{capitale}"
+
+    spoken, _, warnings = apply_rules(source, lexicons)
+
+    assert spoken == source
+    assert warnings == ("unresolved-math: unsupported equation notation remains in spoken text",)
 
 
 def test_document_normalization_preserves_display_text_and_source_order(
