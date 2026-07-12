@@ -2,7 +2,7 @@
 
 ## Current state
 
-- The working tree on `main` contains an intentional, uncommitted documentation restructuring: `design.md`, `implementation.md`, and `performance.md` moved into `docs/`, the README reference material split into eight new `docs/` guides, and README rewritten as a short top-level guide.
+- Commit `92eb60a` on `main` restructures the documentation: `design.md`, `implementation.md`, and `performance.md` moved into `docs/`, the README reference material split into eight new `docs/` guides, and README rewritten as a short top-level guide.
 
 - The active branch is `milestone/c8-chapters-2-6`.
 - Milestone 8 code and documentation are implemented through commit `77c2719`.
