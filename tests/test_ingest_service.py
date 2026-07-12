@@ -6,8 +6,10 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from bilbo_tts.artifacts import BookWorkspace
 from bilbo_tts.ingest.common import IngestionError
-from bilbo_tts.ingest.service import REPORT_PATH, IngestSummary, ingest_book
+from bilbo_tts.ingest.service import DOCUMENT_PATH, REPORT_PATH, IngestSummary, ingest_book
+from bilbo_tts.models import BlockKind, BookDocument
 
 FIXTURE_BOOK = Path(__file__).parent / "fixtures" / "books" / "tiny-latex"
 
@@ -51,6 +53,36 @@ def test_extraction_report_is_an_outline_with_exception_details(tmp_path: Path) 
     assert "## Items requiring review" in report
     assert "Rendimenti annuali Anno Rendimento 2025 5%" in report
     assert "Questa prefazione precede il primo capitolo." not in report
+
+
+def test_ingestion_excludes_configured_supplementary_blocks(tmp_path: Path) -> None:
+    project_root = tmp_path / "project"
+    config = _copy_latex_book(project_root)
+    config.write_text(
+        config.read_text(encoding="utf-8")
+        + "\ningestion:\n"
+        + "  exclude_block_kinds: [footnote, table, caption]\n",
+        encoding="utf-8",
+    )
+
+    summary = ingest_book(config, project_root)
+
+    document = BookWorkspace(project_root, "tiny-latex").artifacts.read(DOCUMENT_PATH, BookDocument)
+    kinds = {block.kind for chapter in document.chapters for block in chapter.blocks}
+    configured_exclusions = [
+        item for item in document.exclusions if item.reason_code == "configured-block-exclusion"
+    ]
+    assert summary.status == "completed"
+    assert not kinds.intersection({BlockKind.FOOTNOTE, BlockKind.TABLE, BlockKind.CAPTION})
+    assert len(configured_exclusions) == 3
+    assert {item.description.split()[1] for item in configured_exclusions} == {
+        "footnote",
+        "table",
+        "caption",
+    }
+    report = (project_root / "work" / "tiny-latex" / REPORT_PATH).read_text(encoding="utf-8")
+    assert "`configured-block-exclusion` — 3 occurrences" in report
+    assert "table-linearized" not in report
 
 
 def test_config_and_source_paths_must_stay_in_owned_directories(tmp_path: Path) -> None:

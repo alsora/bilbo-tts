@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from bilbo_tts.models import (
+    BlockKind,
     ContractModel,
     Identifier,
     NonEmptyText,
@@ -56,6 +57,23 @@ class InputConfig(ContractModel):
         if source_format in expected and suffix not in expected[source_format]:
             raise ValueError(f"path extension is incompatible with {source_format} input")
         return normalized
+
+
+class IngestionConfig(ContractModel):
+    """Optional source blocks omitted from narration."""
+
+    exclude_block_kinds: tuple[BlockKind, ...] = ()
+
+    @field_validator("exclude_block_kinds")
+    @classmethod
+    def excluded_kinds_are_supported(cls, kinds: tuple[BlockKind, ...]) -> tuple[BlockKind, ...]:
+        allowed = {BlockKind.CAPTION, BlockKind.FOOTNOTE, BlockKind.TABLE}
+        unsupported = [kind.value for kind in kinds if kind not in allowed]
+        if unsupported:
+            raise ValueError("exclude_block_kinds supports only caption, footnote, and table")
+        if len(kinds) != len(set(kinds)):
+            raise ValueError("exclude_block_kinds must not contain duplicates")
+        return kinds
 
 
 class PresentationMetadata(ContractModel):
@@ -229,6 +247,7 @@ class BookConfig(ContractModel):
     book_id: Identifier
     language: Literal["it"] = "it"
     input: InputConfig
+    ingestion: IngestionConfig = IngestionConfig()
     metadata: PresentationMetadata
     normalization: NormalizationConfig
     chunking: ChunkingConfig

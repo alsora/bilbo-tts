@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from bilbo_tts.ingest.common import IngestionError, assemble_document, map_pandoc_ast
+from bilbo_tts.ingest.common import (
+    IngestionError,
+    assemble_document,
+    exclude_configured_blocks,
+    map_pandoc_ast,
+)
 from bilbo_tts.models import BlockKind, SourceFormat, SourceLocation
 
 HASH = "a" * 64
@@ -83,6 +88,45 @@ def test_pandoc_ast_maps_supported_structures_and_explicit_omissions() -> None:
     assert [item.reason_code for item in mapped.exclusions] == [
         "non-narratable-image",
         "unsupported-pandoc-block",
+    ]
+
+
+def test_configured_footnotes_tables_and_captions_become_exclusions() -> None:
+    mapped = map_pandoc_ast(
+        {
+            "blocks": [
+                {
+                    "t": "Para",
+                    "c": [
+                        *_inlines("Testo principale"),
+                        {"t": "Note", "c": [{"t": "Para", "c": _inlines("Nota esclusa")}]},
+                        {"t": "Str", "c": "."},
+                    ],
+                },
+                {"t": "Table", "c": [{"t": "Para", "c": _inlines("Tabella esclusa")}]},
+                {"t": "Figure", "c": [{"t": "Para", "c": _inlines("Figura esclusa")}]},
+            ]
+        },
+        SOURCE,
+    )
+
+    filtered = exclude_configured_blocks(
+        mapped,
+        frozenset({BlockKind.FOOTNOTE, BlockKind.TABLE, BlockKind.CAPTION}),
+    )
+
+    assert [(block.kind, block.text) for block in filtered.blocks] == [
+        (BlockKind.PARAGRAPH, "Testo principale.")
+    ]
+    assert [item.reason_code for item in filtered.exclusions] == [
+        "configured-block-exclusion",
+        "configured-block-exclusion",
+        "configured-block-exclusion",
+    ]
+    assert [item.description for item in filtered.exclusions] == [
+        "Configured footnote block excluded from narration: Nota esclusa",
+        "Configured table block excluded from narration: Tabella esclusa",
+        "Configured caption block excluded from narration: Figura esclusa",
     ]
 
 

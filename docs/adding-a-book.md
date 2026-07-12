@@ -5,7 +5,7 @@ This guide describes how to configure a new book, run source extraction, and rev
 ## Book configuration and artifacts
 
 Each book uses a strict `books/<book-id>/book.yaml` configuration with schema version `book-config/v1`.
-The configuration records the source, presentation metadata, normalization and lexicon versions, the model config path selecting one synthesis candidate, and assembly parameters.
+The configuration records the source, optional ingestion exclusions, presentation metadata, normalization and lexicon versions, the model config path selecting one synthesis candidate, and assembly parameters.
 Paths in book configuration must be normalized relative paths and unknown or incompatible fields are rejected.
 
 Derived data belongs under the ignored `work/<book-id>/` workspace.
@@ -104,6 +104,18 @@ input:
   path: source/book.pdf
 ```
 
+Footnotes, tables, and figure captions are narratable by default.
+To exclude any of these block kinds from narration, add an optional ingestion section:
+
+```yaml
+ingestion:
+  exclude_block_kinds: [footnote, table, caption]
+```
+
+`caption` covers narrated figure captions, while a table caption remains part of its `table` block.
+Each configured omission appears in the extraction report as a `configured-block-exclusion`.
+Changing this setting requires rerunning ingestion and may renumber later block identifiers.
+
 `schema_version`, `book_id`, `language`, `input`, `metadata`, `normalization`, `chunking`, and `synthesis` are required.
 `language` is currently fixed to `it`.
 Every configured path is relative to the directory containing `book.yaml`; absolute paths, `..`, backslashes, and mismatched file extensions are rejected.
@@ -145,7 +157,7 @@ Rerunning unchanged input produces byte-identical files and checksums.
 
 Open `work/my-book/reports/extraction.md` before running any downstream stage.
 The report contains a chapter outline, warning and exclusion counts, and the full text of blocks with warnings or non-paragraph structure.
-The canonical `book-document.json` retains every extracted block.
+The canonical `book-document.json` retains every extracted block not excluded by ingestion policy.
 
 Generate the complete reading-order report for the representative chapter:
 

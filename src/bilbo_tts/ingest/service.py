@@ -10,7 +10,12 @@ from pydantic import Field, model_validator
 
 from bilbo_tts.artifacts import BookWorkspace
 from bilbo_tts.config import BookConfig, load_book_config
-from bilbo_tts.ingest.common import IngestionError, MappedContent, assemble_document
+from bilbo_tts.ingest.common import (
+    IngestionError,
+    MappedContent,
+    assemble_document,
+    exclude_configured_blocks,
+)
 from bilbo_tts.ingest.latex import extract_latex
 from bilbo_tts.ingest.pdf import ScannedPdfError, extract_pdf
 from bilbo_tts.models import (
@@ -94,6 +99,8 @@ def ingest_book(config_path: Path, project_root: Path) -> IngestSummary:
             error=str(error),
         )
 
+    excluded_kinds = frozenset(config.ingestion.exclude_block_kinds)
+    contents = tuple(exclude_configured_blocks(content, excluded_kinds) for content in contents)
     document = assemble_document(
         book_id=config.book_id,
         source_format=config.input.format,

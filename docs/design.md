@@ -133,8 +133,9 @@ Blank pages and non-narratable image regions are recorded as exclusions.
 The LaTeX adapter infers the chapter heading level from the presence of parts so part headings remain ordered structure without replacing chapter boundaries.
 PDF and part-free LaTeX level-one headings start chapters, while lower-level headings remain ordered document blocks.
 Content before the first level-one heading becomes front matter, and a source without chapter headings uses the configured book title.
-Headings, paragraphs, list items, quotations, captions, and footnotes remain narratable blocks in source order.
-Tables are linearized with a review warning, and equations remain equation blocks while normalization removes their extraction warning only when bounded deterministic rules resolve all notation.
+Headings, paragraphs, list items, quotations, captions, and footnotes remain narratable blocks in source order by default.
+Book configuration may exclude caption, footnote, and table blocks from narration, and every configured omission becomes an explicit exclusion record before stable block identifiers are assigned.
+Included tables are linearized with a review warning, and equations remain equation blocks while normalization removes their extraction warning only when bounded deterministic rules resolve all notation.
 Bibliography and reference sections, unsupported raw blocks, and images without captions become explicit exclusion records.
 Stable chapter and block identifiers derive from canonical source order rather than mutable display text.
 

@@ -52,6 +52,36 @@ def map_pandoc_ast(ast: dict[str, Any], source: SourceLocation) -> MappedContent
     return MappedContent(blocks=tuple(blocks), exclusions=tuple(exclusions))
 
 
+def exclude_configured_blocks(
+    content: MappedContent,
+    excluded_kinds: frozenset[BlockKind],
+) -> MappedContent:
+    """Remove configured block kinds while retaining auditable exclusion records."""
+
+    if not excluded_kinds:
+        return content
+    blocks: list[MappedBlock] = []
+    exclusions = list(content.exclusions)
+    for block in content.blocks:
+        if block.kind not in excluded_kinds:
+            blocks.append(block)
+            continue
+        preview = block.text if len(block.text) <= 120 else f"{block.text[:117]}..."
+        exclusions.append(
+            _exclusion(
+                "configured-block-exclusion",
+                f"Configured {block.kind.value} block excluded from narration: {preview}",
+                block.source,
+            )
+        )
+    return MappedContent(
+        blocks=tuple(blocks),
+        exclusions=tuple(exclusions),
+        warnings=content.warnings,
+        chapter_heading_level=content.chapter_heading_level,
+    )
+
+
 def assemble_document(
     *,
     book_id: str,

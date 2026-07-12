@@ -2,7 +2,8 @@
 
 ## Current state
 
-- The active branch is `refactor/lexicon-phoneme-overrides` from `main`; it makes the Kokoro phoneme overrides data-driven.
+- The active branch is `main`.
+- The working tree has an uncommitted ingestion configuration change that lets books exclude `footnote`, `table`, and `caption` blocks from narration while recording each omission in the canonical document and extraction report.
 - Lexicon entries now accept an optional `phoneme_override` field, the six reviewed Kokoro marker corrections live entirely in `config/lexicons/kokoro-it.yaml`, and the adapter derives each marker's source phonemes at synthesis time instead of hardcoding marker, source, and target constants.
 - Replacement is best-effort by design: espeak-ng reduces the final vowel of `impegnando-si` mid-clause, so that context keeps its ordinary phonemes exactly as it did with the hardcoded table; the behavior is documented in [`docs/pronunciation-lexicons.md`](docs/pronunciation-lexicons.md).
 - The ignored target `book.yaml` was updated to the new `kokoro-it.yaml` checksum `bc7034bb…`; spoken text and chunk content hashes are unchanged, so a `normalize` and `chunk` rerun refreshes manifests without regenerating audio, and this rerun has not been done yet.
@@ -33,7 +34,7 @@
 
 ## Verification
 
-- On `refactor/lexicon-phoneme-overrides`, `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 388 ordinary tests, and 4 expected hardware skips.
+- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 393 ordinary tests, and 4 expected hardware skips with the configurable ingestion exclusions.
 - Both opt-in Kokoro hardware tests pass, including the new test pinning that each override marker phonemizes identically in isolation and clause-final position.
 - An espeak equivalence check confirmed the derived replacement table produces byte-identical corrected phoneme strings to the removed hardcoded table on marker-dense sentences, including the real `impegnando-si` book context.
 - Kokoro MLX synthesis is not sample-deterministic run-to-run on this machine even with a fixed seed (identical code and inputs produced different PCM hashes with identical frame counts), so phoneme equivalence rather than PCM byte identity is the refactor's no-audio-change evidence.
@@ -57,7 +58,8 @@
 
 ## Next action
 
-- Review and merge `refactor/lexicon-phoneme-overrides`, then rerun `normalize` and `chunk` for the target book to fold the new overlay checksum into its manifests.
+- Review and commit the configurable ingestion exclusions.
+- Rerun `normalize` and `chunk` for the target book to fold the new overlay checksum into its manifests.
 - Listen to representative regenerated chunks for the pronunciation fixes: `block-000036.s0002.p0000` (trent’anni), `block-000133.s0000.p0000` (mille-seicento), `block-000132.s0001.p0000` (eròderne), `block-000222.s0002.p0000` (bòt), and `block-000145.s0000.p0000` (treding).
 - After listening approval, rerun verify and assemble for the chapter 2-6 scope to fold the regenerated `bòt` and `treding` WAVs into the verification manifest and M4B.
 - Commit the pronunciation fixes, then republish the delivery bundle from a clean tracked tree.

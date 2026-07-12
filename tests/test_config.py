@@ -14,6 +14,7 @@ from bilbo_tts.config import (
     VoiceConfig,
     load_book_config,
 )
+from bilbo_tts.models import BlockKind
 
 HASH_A = "a" * 64
 
@@ -86,6 +87,7 @@ def test_load_valid_book_config(tmp_path: Path) -> None:
 
     assert config.book_id == "finance-book"
     assert config.input.path == "source/book.tex"
+    assert config.ingestion.exclude_block_kinds == ()
     assert config.chunking.max_characters == 300
     assert config.synthesis.model_config_path == "config/qualification/kokoro-nicola-s120.yaml"
     assert config.verification.max_auto_retries == 2
@@ -95,6 +97,38 @@ def test_load_valid_book_config(tmp_path: Path) -> None:
     assert config.assembly.true_peak_tolerance_db == 0.5
     assert config.assembly.aac_bitrate_kbps == 64
     assert BookConfig.model_validate_json(config.model_dump_json()) == config
+
+
+def test_ingestion_can_exclude_supplementary_block_kinds() -> None:
+    payload = valid_config()
+    payload["ingestion"] = {
+        "exclude_block_kinds": ["footnote", "table", "caption"],
+    }
+
+    config = BookConfig.model_validate(payload)
+
+    assert config.ingestion.exclude_block_kinds == (
+        BlockKind.FOOTNOTE,
+        BlockKind.TABLE,
+        BlockKind.CAPTION,
+    )
+
+
+@pytest.mark.parametrize(
+    "kinds, message",
+    [
+        (["paragraph"], "supports only caption, footnote, and table"),
+        (["table", "table"], "must not contain duplicates"),
+    ],
+)
+def test_ingestion_rejects_unsupported_or_duplicate_exclusions(
+    kinds: list[str], message: str
+) -> None:
+    payload = valid_config()
+    payload["ingestion"] = {"exclude_block_kinds": kinds}
+
+    with pytest.raises(ValidationError, match=message):
+        BookConfig.model_validate(payload)
 
 
 @pytest.mark.parametrize(
