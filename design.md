@@ -111,12 +111,15 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - [`src/bilbo_tts/asr/`](src/bilbo_tts/asr/): a narrow transcription interface with an MLX-Whisper implementation.
 - [`src/bilbo_tts/verification.py`](src/bilbo_tts/verification.py): JiWER-based scoring, repetition/truncation and duration heuristics, bounded retries, and a machine-readable review queue.
 - [`src/bilbo_tts/assembly.py`](src/bilbo_tts/assembly.py): concatenate lossless PCM with sentence/paragraph/chapter pauses, run two-pass `ffmpeg loudnorm`, create FFMETADATA chapter markers, and encode AAC only once into `.m4b`.
-- [`books/<book-id>/book.yaml`](books/<book-id>/book.yaml): input, title/author, voice, engine, thresholds, pause durations, loudness target, and cover settings.
+- [`books/<book-id>/book.yaml`](books/<book-id>/book.yaml): input, title/author, a model config path selecting one candidate under `config/qualification/`, retry policy, thresholds, pause durations, loudness target, and cover settings.
+- A book never duplicates model identity, voice, or generation settings; the referenced candidate file owns them, so books switch models by changing one repository-relative path.
 - `work/<book-id>/`: ignored derived manifests, chunk WAVs, transcripts, reports, and final media. Inputs and reusable configuration remain versioned.
 
 ## Model and runtime strategy for a 16 GB Apple Silicon Mac
 
-- The qualified default is Chatterbox Multilingual V3 through the official PyTorch MPS implementation because no maintained V3 MLX port exists.
+- The interim production default is Kokoro-82M with the `kokoro-nicola-s120` candidate because Chatterbox synthesizes near real-time factor 4 to 5, which makes full-book renders impractical on the target machine; the evidence lives in [`performance.md`](performance.md).
+- Chatterbox Multilingual V3 remains the preferred voice and the long-term target; the performance investigation continues in parallel, and returning to Chatterbox as default requires only a book's model config path change once its wall time is acceptable.
+- The qualified Chatterbox configuration uses the official PyTorch MPS implementation because no maintained V3 MLX port exists.
 - Pin the Chatterbox code to `65b18437192794391a0308a8f705b1e33e633948` and `ResembleAI/chatterbox` weights to `5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18`.
 - Use the pinned model's built-in `conds.pt` voice without external voice cloning or reference audio.
 - Generate native mono audio at 24 kHz with seed `20260711`, speed `1.0`, temperature `0.8`, exaggeration `0.5`, CFG weight `0.5`, repetition penalty `1.2`, minimum probability `0.05`, top probability `1.0`, and multilingual T3 model `v3`.
@@ -125,11 +128,12 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - The Tahoe 26.5.2 qualification generated 139 seconds of Chatterbox audio in 873 seconds with 4.14 GB process peak RSS and no failed excerpts.
 - Human listening strongly preferred Chatterbox while noting a slight English-native accent on some Italian words.
 - Record demonstrated Chatterbox pronunciation corrections in a separate model-specific lexicon overlay instead of changing model-independent spoken text.
-- The qualified fallback is Kokoro-82M through MLX using `mlx-community/Kokoro-82M-bf16` revision `a71e4d38b236d968966a2002c4c895dbd12b1c3c` and Italian voice `if_sara`.
-- Generate Kokoro audio at native mono 24 kHz with seed `20260711`, speed `1.0`, and no temperature parameter.
+- Kokoro-82M runs through MLX using `mlx-community/Kokoro-82M-bf16` revision `a71e4d38b236d968966a2002c4c895dbd12b1c3c`.
+- The interim default candidate `kokoro-nicola-s120` uses Italian voice `im_nicola` at speed `1.2` because listening preferred it over `if_sara` and the voice's slower natural pace needs compensation; the original `kokoro` candidate records the `if_sara` qualification baseline.
+- Generate Kokoro audio at native mono 24 kHz with seed `20260711` and no temperature parameter.
 - Kokoro has no qualified character-count rule because its effective limit is phoneme-token based, so it receives the same pre-chunked text and surfaces backend limit failures without silent resampling.
-- Human review accepts Kokoro's lower-quality but intelligible output for fallback use.
-- Fallback selection is a documented manual contingency until automatic runtime fallback is explicitly implemented.
+- Kokoro's demonstrated espeak-ng pronunciation defects are corrected in the shared [`config/lexicons/kokoro-it.yaml`](config/lexicons/kokoro-it.yaml) overlay.
+- Model selection is a manual book configuration change until automatic runtime fallback is explicitly implemented.
 - Both selected model-weight licenses are permissive, and external voice cloning remains restricted to voices the user owns or has explicit permission to reproduce.
 - Verification on macOS should use MLX-Whisper or whisper.cpp, not `faster-whisper`: CTranslate2 has no MPS path and runs CPU-only on Apple Silicon. Start with `large-v3-turbo`; make the exact ASR model configurable.
 - Treat ASR metrics as supporting evidence rather than the model-selection oracle.

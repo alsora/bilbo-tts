@@ -76,7 +76,7 @@ Pytest settings and the minimum coverage threshold are defined in [`pyproject.to
 ## Book configuration and artifacts
 
 Each book uses a strict `books/<book-id>/book.yaml` configuration with schema version `book-config/v1`.
-The configuration records the source, presentation metadata, normalization and lexicon versions, synthesis identity and settings, and assembly parameters.
+The configuration records the source, presentation metadata, normalization and lexicon versions, the model config path selecting one synthesis candidate, and assembly parameters.
 Paths in book configuration must be normalized relative paths and unknown or incompatible fields are rejected.
 
 Derived data belongs under the ignored `work/<book-id>/` workspace.
@@ -164,13 +164,7 @@ chunking:
   max_characters: 300
 
 synthesis:
-  engine: fake
-  model_revision: fake-v1
-  voice:
-    voice_id: fake-voice
-  settings:
-    sample_rate_hz: 24000
-    seed: 7
+  model_config_path: config/qualification/fake.yaml
 ```
 
 For a PDF, change only the input section:
@@ -191,8 +185,10 @@ Entries in `normalization.lexicons` are checksum-pinned overlays applied in list
 Keep engine-specific pronunciation overrides in separately named overlay files so model-independent speech text remains auditable.
 The overlay file format, placement rules, and correction workflow are documented in [Pronunciation lexicons](#pronunciation-lexicons).
 `chunking.max_characters` is an explicit positive character limit; engine-specific phoneme limits are deferred until model qualification.
-The `fake` synthesis values select the deterministic dependency-free engine used by committed integration fixtures.
-For production, replace them with the qualified Chatterbox values documented below.
+`synthesis.model_config_path` selects one reviewed candidate file under the repository's `config/qualification/` directory, which owns the complete pinned model identity, voice, and generation settings.
+The path is repository-relative even for books in private project roots, so every book shares the same reviewed candidate files.
+The optional `synthesis.max_retries` bounds regeneration attempts per chunk and defaults to 2.
+The `fake` candidate selects the deterministic dependency-free engine used by committed integration fixtures; production books use the interim Kokoro default documented below.
 The optional `assembly` section may be omitted to use the default pause and loudness settings.
 Unknown fields and misspelled field names are rejected with an actionable validation error.
 
@@ -473,10 +469,10 @@ The dtype and sampler experiments require the built-in voice.
 None of them changes the pinned production default until its adoption is recorded in `design.md`.
 The measured evidence behind these variants, the thermal-throttling measurement methodology, and the `scripts/ab_timing.py` comparison tool are documented in [`performance.md`](performance.md).
 The default development environment can run the deterministic fake candidate without importing or downloading a model.
-The qualified default is Chatterbox Multilingual V3 with its pinned built-in voice.
-The qualified fallback is Kokoro-82M with Italian voice `if_sara`.
-Human review strongly preferred Chatterbox and accepted Kokoro as an intelligible lower-quality fallback.
-Chatterbox retains a mild English-native accent on some Italian words, which should be addressed only through reviewed model-specific pronunciation overrides.
+Human review strongly preferred the Chatterbox Multilingual V3 voice, but its real-time factor of 4 to 5 makes full-book renders impractical, as measured in [`performance.md`](performance.md).
+The interim production default is therefore the Kokoro `kokoro-nicola-s120` candidate: voice `im_nicola` at speed 1.2, roughly 30 times faster than Chatterbox.
+Chatterbox remains the long-term target while the performance investigation continues in parallel.
+Both engines retain accent defects on some Italian words, which should be addressed only through reviewed model-specific pronunciation overrides.
 The exact revisions, settings, runtime limits, and selection policy are recorded in [`design.md`](design.md#model-and-runtime-strategy-for-a-16-gb-apple-silicon-mac).
 
 Run the fake qualification path:
@@ -562,32 +558,25 @@ Keep `mapping.json` closed until all ratings have been recorded.
 ## Resumable synthesis
 
 Run synthesis only after the normalized text and chunking reports are approved.
-Production books use the qualified Chatterbox identity and request settings:
+A book selects its complete pinned model identity, voice, and settings through one candidate file:
 
 ```yaml
 synthesis:
-  engine: chatterbox
-  model_revision: 5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18
-  voice:
-    voice_id: builtin
-  settings:
-    sample_rate_hz: 24000
-    seed: 20260711
-    speed: 1.0
-    temperature: 0.8
+  model_config_path: config/qualification/kokoro-nicola-s120.yaml
   max_retries: 2
 ```
 
-Run Chatterbox from its isolated Pixi environment:
+Production books currently use the interim Kokoro default shown above; a future return to Chatterbox changes only this path to `config/qualification/chatterbox.yaml`.
+Run synthesis from the Pixi environment matching the selected engine:
 
 ```shell
-.tools/bin/pixi run -e chatterbox bilbo synthesize books/my-book/book.yaml
+.tools/bin/pixi run -e kokoro bilbo synthesize books/my-book/book.yaml
 ```
 
 For an isolated private project, pass the same project root used by the text stages:
 
 ```shell
-.tools/bin/pixi run -e chatterbox bilbo synthesize \
+.tools/bin/pixi run -e kokoro bilbo synthesize \
   books/my-book/book.yaml \
   --project-root work/private-project
 ```
@@ -601,7 +590,7 @@ An unchanged rerun is therefore a no-op and does not load model weights.
 Restrict a run with any combination of chapter and inclusive chunk sequence bounds:
 
 ```shell
-.tools/bin/pixi run -e chatterbox bilbo synthesize books/my-book/book.yaml \
+.tools/bin/pixi run -e kokoro bilbo synthesize books/my-book/book.yaml \
   --chapter chapter-0002 \
   --chunk-start 20 \
   --chunk-end 40
@@ -611,7 +600,7 @@ Combined selectors intersect.
 Invalid chapter identifiers and ranges fail before model loading.
 Use `--failed` to select only chunks whose current cache identity has an exhausted TTS failure.
 Use `--force` to regenerate otherwise valid selected chunks.
-Automatic fallback is intentionally absent; switch the book configuration to the pinned Kokoro identity and run from the `kokoro` environment when the documented manual contingency is required.
+Automatic fallback is intentionally absent; switching a book between engines is a manual `model_config_path` change, and changing it regenerates all audio because the model identity is part of every chunk cache key.
 
 If synthesis is interrupted, rerun the same command.
 Completed sidecar/WAV pairs remain valid, while missing or incomplete pairs are regenerated.
