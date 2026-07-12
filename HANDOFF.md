@@ -2,30 +2,29 @@
 
 ## Current state
 
-- The active branch is `main`.
-- Milestone 7 assembly is committed as `7c5f369`, with the listening-driven clause-pause and AAC peak-headroom correction as `95a82b6`.
-- `bilbo assemble` now validates accepted current generations, streams sample-accurate PCM and configured pauses, creates chapter metadata, runs two-pass FFmpeg loudness normalization with one AAC encode, and validates the result with FFprobe.
-- The assembly manifest records exact inputs, commands and tool versions, loudness evidence, chapter ranges, probed metadata, overrides, and the final checksum.
-- Full-book and chapter-scoped outputs are idempotent, optional cover art is supported, and missing, failed, corrupt, wrong-format, mixed-rate, stale, or unaccepted inputs block by default.
-- The private target book under ignored `work/c2-target-project/` has a newly rebuilt and automatically validated chapter-0002 M4B containing the reviewed pronunciation corrections.
-- The shared lexicon corrections, including `aziende`, are committed as `2b68363`; the matching plural Kokoro phoneme override, tests, and design update are intentional uncommitted changes.
-- Normalization and chunking have been refreshed, and six chapter-0002 chunks containing `aziende` were regenerated while the other 150 WAVs were reused.
-- Chatterbox remains the preferred long-term voice, but its benchmark and improvement work remains deferred until checkpoint C8 is complete.
+- The active branch is `milestone/c8-chapters-2-6`.
+- Milestone 8 code and documentation are implemented in commits `1e6f50a`, `d5658c9`, `424d204`, `d8778c2`, `e5e9f8b`, and `5e4e17f`.
+- Repeatable ordered chapter selection, scoped verification merging, multi-chapter assembly, `bilbo run`, text-only qualification, model-license provenance, and atomic content-addressed build bundles are implemented.
+- C8 is deliberately scoped to `chapter-0002` through `chapter-0006` and will produce one five-chapter M4B after listening review clears the verification gate.
+- The ignored target workspace is `work/c2-target-project/work/tts-investimento/`.
+- All 2,819 selected chunks have current Kokoro audio.
+- Verification accepted 2,797 selected chunks, queued none for automatic retry, and left 22 chunks requiring human listening review.
+- Assembly and bundle publication have not run because unreviewed chunks correctly block them.
+- The deterministic checklist is `reports/listening-checklist.md`, and the matching 47-item playlist is `reports/listening-checklist.m3u` in the target workspace.
+- The checklist contains all 22 flagged chunks and five deterministic accepted samples from each selected chapter.
+- The two known chapter-0002 Kokoro pause defects remain explicitly accepted limitations as recorded in [`performance.md`](performance.md).
+- Chatterbox benchmark and improvement work remains deferred until C8 is accepted.
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 318 ordinary tests, 3 expected hardware skips, and 91.49 percent coverage.
-- The plural `aziende` marker is converted to the reviewed voiced `adzjˈɛnde` phoneme sequence.
-- Chapter-scoped verification transcribed 26 changed chunks, reused 130 existing results, and accepted all 156 chunks with no retry or review queue.
-- Model-free integration tests encode and probe both covered and coverless M4B fixtures and prove unchanged reruns are no-ops.
-- The private chapter build includes all 156 accepted chunks with no override and reuses its validated output on rerun.
-- The first listening pass found the explicit 250 ms colon pauses slightly too long; colon boundaries now use a distinct 150 ms clause pause without regenerating speech audio.
-- Final listening found stable unnatural internal Kokoro pauses in `block-000020.s0009.p0000` and `block-000021.s0007.p0000`; retry seed 1 changed both waveforms but sounded nearly identical.
-- Those two known model defects are explicitly accepted for C7 and their resolution is deferred as recorded in [`performance.md`](performance.md).
-- The rebuilt chapter M4B is mono AAC at 24 kHz and 64 kbps with one chapter marker and a probed duration of 1351.600 seconds.
-- Post-encode loudness is -18.06 LUFS with -2.02 dBTP true peak, within the configured tolerances.
-- The rebuilt chapter output SHA-256 is `4b960f5d087a09af7d05050838ccbeb9d4557b2e5a182eebd1f36612991ae0f6`.
-- The assembly manifest SHA-256 is `428544b4801a98fffd6bdd2b7569a9f35773eeeac1be39565b02d1a232239e97`, and the verification manifest SHA-256 is `cf6db9852844b1d23009c84e0dd9b1c798eeb77445e8eef87ad6b2a1b2211f89`.
+- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 370 ordinary tests, 3 expected hardware skips, and 90.86 percent coverage.
+- Opt-in Kokoro and Whisper hardware smoke tests pass with `BILBO_HARDWARE_TESTS=1` and `--no-cov`.
+- Text-only qualification reports 752 blocks, 52,119 words, 2,819 chunks, 35 forced splits, 67 length outliers, and an estimated duration of 6:02:40.
+- Selected normalization has zero unresolved tokens.
+- The remaining 17 normalization warnings are explicit inline-equation and table-order review markers whose spoken text no longer contains raw LaTeX or unresolved currency and percentage symbols.
+- The first model run was interrupted after persisting roughly half the selected WAVs.
+- Rerunning the identical command reused valid sidecars, completed synthesis, and continued through all selected ASR checks, demonstrating interruption recovery.
+- The 22 review records are dominated by ASR notation, URL, proper-name, and short-heading mismatches, but they must not be accepted without listening.
 
 ## Durable references
 
@@ -36,6 +35,7 @@
 
 ## Next action
 
-- Checkpoint C7 is accepted; spot-check the rebuilt M4B's plural `aziende` pronunciation before treating this revised media artifact as human-approved.
-- Start Milestone 8 full-book qualification while retaining the two deferred Kokoro pause defects as explicit known limitations.
-- Keep Chatterbox benchmark and improvement work deferred until after checkpoint C8.
+- Open the target `reports/listening-checklist.m3u` or follow the `afplay` commands in `reports/listening-checklist.md`.
+- Record an explicit `review-verification` accept or regenerate decision for every flagged chunk.
+- Rerun the exact five-chapter `bilbo run` command after review.
+- Validate the resulting M4B and build bundle, rerun the command once more to prove no-op reuse, and keep C8 pending until the full listening checklist is approved.
