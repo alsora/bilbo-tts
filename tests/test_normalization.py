@@ -293,6 +293,11 @@ def test_shared_scope_loads_from_repository_lexicon_directory(tmp_path: Path) ->
         ("costosi", "costósi", "vowel-costosi"),
         ("azienda", "ad-ziènda", "consonant-azienda"),
         ("aziende", "ad-ziènde", "consonant-aziende"),
+        ("meglio", "mèllio", "consonant-meglio"),
+        ("go-kart", "go-kartt", "loanword-go-kart"),
+        ("duemiladiciannove", "duemiladiciannòve", "vowel-duemiladiciannove"),
+        ("impegnandosi", "impegnando-si", "consonant-impegnandosi"),
+        ("centoventisette", "centoventissètte", "compound-centoventisette"),
     )
     for source, expected, entry_id in corrections:
         spoken, transformations, _ = apply_rules(source, loaded)

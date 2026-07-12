@@ -359,10 +359,13 @@ class FakeKokoroResult:
 
 class FakePhonemizer:
     def phonemize(self, _text: str) -> tuple[str, list[int]]:
-        return "prima dʦʦˈɛro, adʣjˈɛnda e adʣjˈɛnde dopo", [1]
+        return (
+            "prima dʦʦˈɛro, adʣjˈɛnda, adʣjˈɛnde, mˈɛllio, impeɲˈandosˈi, e ʧentoventiSˈɛtːe dopo",
+            [1],
+        )
 
     def phonemize_long(self, _text: str) -> list[tuple[str, list[int]]]:
-        return [("prima dʦʦˈɛro, adʣjˈɛnda e adʣjˈɛnde dopo", [1])]
+        return [self.phonemize(_text)]
 
     def _ids_from_phonemes(self, phonemes: str) -> list[int]:
         return [ord(character) for character in phonemes]
@@ -1008,15 +1011,28 @@ def test_kokoro_success_uses_pinned_snapshot_seed_settings_and_pcm(
 def test_kokoro_markers_receive_reviewed_phoneme_sequences() -> None:
     phonemizer = kokoro_adapter._ReviewedOverridePhonemizer(FakePhonemizer())
 
-    phonemes, token_ids = phonemizer.phonemize("dzzèro, ad-ziènda e ad-ziènde")
-    long = phonemizer.phonemize_long("prima dzzèro, ad-ziènda e ad-ziènde dopo")
+    markers = "dzzèro, ad-ziènda, ad-ziènde, mèllio, impegnando-si, e centoventissètte"
+    phonemes, token_ids = phonemizer.phonemize(markers)
+    long = phonemizer.phonemize_long(f"prima {markers} dopo")
 
-    assert phonemes == "prima dzˈɛro, adzjˈɛnda e adzjˈɛnde dopo"
+    assert phonemes == (
+        "prima dzˈɛro, adzjˈɛnda, adzjˈɛnde, mˈɛʎːo, impeɲˈandosi, e ʧentoventisˈɛtːe dopo"
+    )
     assert token_ids == [ord(character) for character in phonemes]
     assert long == [(phonemes, token_ids)]
 
 
-@pytest.mark.parametrize("marker", ["dzzèro", "ad-ziènda", "ad-ziènde"])
+@pytest.mark.parametrize(
+    "marker",
+    [
+        "dzzèro",
+        "ad-ziènda",
+        "ad-ziènde",
+        "mèllio",
+        "impegnando-si",
+        "centoventissètte",
+    ],
+)
 def test_kokoro_engine_installs_phoneme_overrides_only_for_marker(
     monkeypatch: pytest.MonkeyPatch,
     marker: str,
@@ -1033,7 +1049,9 @@ def test_kokoro_engine_installs_phoneme_overrides_only_for_marker(
     corrected = model._get_phonemizer("it", "if_sara")
 
     assert isinstance(corrected, kokoro_adapter._ReviewedOverridePhonemizer)
-    assert corrected.phonemize(marker)[0] == "prima dzˈɛro, adzjˈɛnda e adzjˈɛnde dopo"
+    assert corrected.phonemize(marker)[0] == (
+        "prima dzˈɛro, adzjˈɛnda, adzjˈɛnde, mˈɛʎːo, impeɲˈandosi, e ʧentoventisˈɛtːe dopo"
+    )
 
 
 @pytest.mark.parametrize(

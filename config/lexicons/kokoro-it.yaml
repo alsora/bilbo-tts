@@ -25,6 +25,14 @@ entries:
     case_sensitive: false
     word_boundaries: true
     notes: The Italianized rendering avoids Kokoro's strongly English rhotic and long vowels; the doubled final t keeps the release audible.
+  - entry_id: loanword-go-kart
+    mode: literal
+    pattern: go-kart
+    spoken: go-kartt
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The doubled final t keeps the release audible instead of reducing the loanword to go-car.
   - entry_id: homograph-principi
     mode: literal
     pattern: principi
@@ -97,6 +105,38 @@ entries:
     case_sensitive: false
     word_boundaries: true
     notes: The marker receives a reviewed voiced dz sequence in the Kokoro adapter, avoiding both the weak ordinary onset and an overlong affricate.
+  - entry_id: consonant-meglio
+    mode: literal
+    pattern: meglio
+    spoken: mèllio
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The marker receives a reviewed long palatal lateral in the Kokoro adapter instead of the glide-like mejo rendering.
+  - entry_id: consonant-impegnandosi
+    mode: literal
+    pattern: impegnandosi
+    spoken: impegnando-si
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The marker receives the reviewed voiceless pronoun s without adding a second stress in the Kokoro adapter.
+  - entry_id: compound-centoventisette
+    mode: literal
+    pattern: centoventisette
+    spoken: centoventissètte
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The marker receives a reviewed voiceless s and open stressed e in the Kokoro adapter.
+  - entry_id: vowel-duemiladiciannove
+    mode: literal
+    pattern: duemiladiciannove
+    spoken: duemiladiciannòve
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: The explicit accent selects the reviewed open stressed o in the year 2019.
   - entry_id: vowel-valeva
     mode: literal
     pattern: valeva
