@@ -310,6 +310,7 @@ def test_shared_scope_loads_from_repository_lexicon_directory(tmp_path: Path) ->
         ("milleseicento", "mille-seicento", "compound-seicento"),
         ("bot", "bòt", "vowel-bot"),
         ("BOT", "bòt", "vowel-bot"),
+        ("trading", "treding", "loanword-trading"),
     )
     for source, expected, entry_id in corrections:
         spoken, transformations, _ = apply_rules(source, loaded)

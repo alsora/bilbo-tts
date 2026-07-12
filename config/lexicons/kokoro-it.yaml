@@ -17,6 +17,14 @@ entries:
     case_sensitive: false
     word_boundaries: true
     notes: espeak-ng reads duration as Italian duratjon; the reviewed Italianized rendering was preferred over a closer English one.
+  - entry_id: loanword-trading
+    mode: literal
+    pattern: trading
+    spoken: treding
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng reads trading with Italian letter rules as trading with an open a; the respelling yields the requested treding rendering.
   - entry_id: loanword-wall-street
     mode: literal
     pattern: Wall Street

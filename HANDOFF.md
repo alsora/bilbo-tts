@@ -5,7 +5,8 @@
 - Commit `92eb60a` on `main` restructures the documentation: `design.md`, `implementation.md`, and `performance.md` moved into `docs/`, the README reference material split into eight new `docs/` guides, and README rewritten as a short top-level guide.
 
 - The active branch is `main`; the milestone branch `milestone/c8-chapters-2-6` holds the C8 implementation through commit `77c2719`.
-- The latest commit on `main` contains the listening-review pronunciation fixes: a new `anni-elision` normalization rule, number expansion reordered before lexicon application, `BOT` pronounced as the word `bot` in `finance-it.yaml`, `stress-eroderne`, regex `compound-seicento`, and open-o `vowel-bot` entries in `kokoro-it.yaml`, and regenerated golden fixtures.
+- Commit `be8a6a6` on `main` contains the listening-review pronunciation fixes: a new `anni-elision` normalization rule, number expansion reordered before lexicon application, `BOT` pronounced as the word `bot` in `finance-it.yaml`, `stress-eroderne`, regex `compound-seicento`, and open-o `vowel-bot` entries in `kokoro-it.yaml`, and regenerated golden fixtures.
+- The follow-up commit on `main` adds the `loanword-trading` entry (`trading` -> `treding`) to `kokoro-it.yaml` with its test.
 - The ignored target `book.yaml` carries the matching `kokoro-it.yaml` checksum and the raised true-peak tolerance as intentional working-workspace changes.
 - The rule reorder means digit-derived expansions now receive lexicon corrections, so `dzzèro`, `sessanta-sette`, and `duemiladiciannòve` markers appear in many more chunks; 37 chapter 2-6 chunks were regenerated and re-verified for these fixes.
 - The target `book.yaml` now sets `true_peak_tolerance_db: 1.0` because the regenerated timeline's AAC encode overshoots the pre-encode clamp by up to 1.46 dB and assembly failed at the default 0.5 dB headroom.
@@ -34,7 +35,7 @@
 - Opt-in Kokoro and Whisper hardware smoke tests pass with `BILBO_HARDWARE_TESTS=1` and `--no-cov`.
 - The pronunciation fixes changed 37 chapter 2-6 chunks; synthesis regenerated exactly those chunks and reused the other 2,782 cached WAVs.
 - Verification re-transcribed the 37 regenerated chunks and accepted all 2,819 selected chunks with zero retryable or review records.
-- The follow-up open-o `bòt` correction regenerated only the three `bot` chunks; verification and assembly have not been rerun since, so the current verification manifest and M4B predate those three WAVs.
+- The follow-up open-o `bòt` correction regenerated three chunks and the `trading` -> `treding` loanword correction regenerated seven chapter 2-6 chunks; verification and assembly have not been rerun since, so the current verification manifest and M4B predate those regenerated WAVs.
 - The espeak phoneme check confirms `eròderne` -> `erˈɔderne`, `mille-seicento` -> voiceless `sejʧ`, `trent’anni` -> `trentˈaːnnɪ`, and `bòt` -> `bˈɔt`.
 - The rebuilt M4B contains five ordered chapter markers, 2,819 chunks, mono AAC at 24 kHz, and a duration of 21,846.200 seconds.
 - Post-encode loudness is -18.06 LUFS with -2.1 dBTP true peak.
@@ -50,8 +51,8 @@
 
 ## Next action
 
-- Listen to representative regenerated chunks for the four pronunciation fixes: `block-000036.s0002.p0000` (trent’anni), `block-000133.s0000.p0000` (mille-seicento), `block-000132.s0001.p0000` (eròderne), and `block-000222.s0002.p0000` (bòt).
-- After listening approval, rerun verify and assemble for the chapter 2-6 scope to fold the three regenerated `bòt` WAVs into the verification manifest and M4B.
+- Listen to representative regenerated chunks for the pronunciation fixes: `block-000036.s0002.p0000` (trent’anni), `block-000133.s0000.p0000` (mille-seicento), `block-000132.s0001.p0000` (eròderne), `block-000222.s0002.p0000` (bòt), and `block-000145.s0000.p0000` (treding).
+- After listening approval, rerun verify and assemble for the chapter 2-6 scope to fold the regenerated `bòt` and `treding` WAVs into the verification manifest and M4B.
 - Commit the pronunciation fixes, then republish the delivery bundle from a clean tracked tree.
 - Play the rebuilt M4B in an audiobook-capable player.
 - Check its beginning and end, all five chapter transitions, chapter seeking and titles, metadata, and representative joins.
