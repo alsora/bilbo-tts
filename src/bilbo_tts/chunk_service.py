@@ -57,6 +57,7 @@ def chunk_book(config_path: Path, project_root: Path) -> ChunkSummary:
         normalized_document_sha256=normalized_reference.sha256,
         max_characters=context.config.chunking.max_characters,
         pauses=context.config.assembly.pauses,
+        pack_sentences=context.config.chunking.pack_sentences,
     )
     manifest_reference = store.write(
         CHUNK_MANIFEST_PATH,

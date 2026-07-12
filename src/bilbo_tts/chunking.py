@@ -94,8 +94,15 @@ def build_chunk_manifest(
     normalized_document_sha256: str,
     max_characters: int,
     pauses: PauseConfig,
+    pack_sentences: bool = False,
 ) -> ChunkManifest:
-    """Map normalized blocks to stable, ordered synthesis chunks."""
+    """Map normalized blocks to stable, ordered synthesis chunks.
+
+    With ``pack_sentences`` enabled, adjacent whole sentences of one block are
+    greedily merged up to ``max_characters`` so fewer chunks amortize the
+    per-chunk synthesis overhead; merged chunks keep the pause of their first
+    sentence and intra-chunk sentence pauses come from the model's prosody.
+    """
 
     if document.book_id != normalized.book_id:
         raise ChunkingError(
@@ -123,16 +130,28 @@ def build_chunk_manifest(
             if not spoken_sentences:
                 raise ChunkingError(f"block {block.block_id} contains no spoken sentences")
             displays_align = len(display_sentences) == len(spoken_sentences)
-            for sentence_index, sentence in enumerate(spoken_sentences):
-                parts = split_to_limit(sentence, max_characters)
-                sentence_id = f"{block.block_id}.s{sentence_index:04d}"
+            groups = (
+                _pack_sentences(spoken_sentences, max_characters)
+                if pack_sentences
+                else tuple((index, index) for index in range(len(spoken_sentences)))
+            )
+            for start, end in groups:
+                spoken = " ".join(spoken_sentences[start : end + 1])
+                parts = split_to_limit(spoken, max_characters)
+                sentence_id = (
+                    f"{block.block_id}.s{start:04d}"
+                    if start == end
+                    else f"{block.block_id}.s{start:04d}-s{end:04d}"
+                )
                 display = (
-                    display_sentences[sentence_index] if displays_align else block.display_text
+                    " ".join(display_sentences[start : end + 1])
+                    if displays_align
+                    else block.display_text
                 )
                 for part_index, part in enumerate(parts):
                     pause = _pause_for(
                         block_index=block_index,
-                        sentence_index=sentence_index,
+                        sentence_index=start,
                         part_index=part_index,
                         pauses=pauses,
                     )
@@ -154,6 +173,27 @@ def build_chunk_manifest(
         normalized_document_sha256=normalized_document_sha256,
         chunks=tuple(chunks),
     )
+
+
+def _pack_sentences(
+    sentences: tuple[str, ...],
+    max_characters: int,
+) -> tuple[tuple[int, int], ...]:
+    """Greedily group adjacent whole sentences up to the character limit."""
+
+    groups: list[tuple[int, int]] = []
+    start = 0
+    length = len(sentences[0])
+    for index in range(1, len(sentences)):
+        addition = 1 + len(sentences[index])
+        if length + addition <= max_characters:
+            length += addition
+        else:
+            groups.append((start, index - 1))
+            start = index
+            length = len(sentences[index])
+    groups.append((start, len(sentences) - 1))
+    return tuple(groups)
 
 
 def _strong_split(text: str, limit: int) -> int | None:

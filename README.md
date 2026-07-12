@@ -283,6 +283,9 @@ Ordinary sentence boundaries and complete chunk text remain only in the manifest
 A sentence longer than `max_characters` splits first at punctuation and then at whitespace.
 Forced splits avoid extra or very short chunks and prefer semicolons and colons over commas.
 A single word longer than the configured limit fails with an actionable error rather than violating the limit.
+Optional `chunking.pack_sentences: true` greedily merges adjacent whole sentences of one block up to `max_characters`, amortizing per-chunk synthesis overhead.
+A packed chunk keeps the configured pause of its first sentence, and pauses between its merged sentences come from the model's prosody instead of `assembly.pauses.sentence_ms`.
+Enabling packing changes every chunk identity, so an existing book regenerates all audio; decide before large synthesis runs.
 
 Generate the complete chunk and pause report for the representative chapter:
 

@@ -159,6 +159,102 @@ def test_chunk_manifest_preserves_text_order_ids_and_pause_semantics() -> None:
         assert " ".join(reconstructed.split()) == " ".join(block.spoken_text.split())
 
 
+def test_packing_merges_adjacent_sentences_and_keeps_first_pause() -> None:
+    document, normalized = _documents()
+
+    manifest = build_chunk_manifest(
+        document,
+        normalized,
+        book_document_sha256=BOOK_REFERENCE_SHA256,
+        normalized_document_sha256=NORMALIZED_REFERENCE_SHA256,
+        max_characters=40,
+        pauses=PauseConfig(sentence_ms=250, paragraph_ms=600, chapter_ms=1500),
+        pack_sentences=True,
+    )
+
+    # "Prima frase." (12) + space + "Seconda frase molto lunga." (26) fits in 40.
+    assert [chunk.chunk_id for chunk in manifest.chunks] == [
+        "block-1.s0000-s0001.p0000",
+        "block-2.s0000.p0000",
+        "block-3.s0000.p0000",
+    ]
+    assert manifest.chunks[0].spoken_text == "Prima frase. Seconda frase molto lunga."
+    assert manifest.chunks[0].display_text == "Prima frase. Seconda frase molto lunga."
+    assert [chunk.pause.break_before for chunk in manifest.chunks] == [
+        BreakKind.CHAPTER,
+        BreakKind.PARAGRAPH,
+        BreakKind.CHAPTER,
+    ]
+    assert all(len(chunk.spoken_text) <= 40 for chunk in manifest.chunks)
+    for block in normalized.blocks:
+        reconstructed = " ".join(
+            chunk.spoken_text for chunk in manifest.chunks if chunk.paragraph_id == block.block_id
+        )
+        assert " ".join(reconstructed.split()) == " ".join(block.spoken_text.split())
+
+
+def test_packing_respects_limit_and_still_splits_overlong_sentences() -> None:
+    document, normalized = _documents()
+
+    manifest = build_chunk_manifest(
+        document,
+        normalized,
+        book_document_sha256=BOOK_REFERENCE_SHA256,
+        normalized_document_sha256=NORMALIZED_REFERENCE_SHA256,
+        max_characters=20,
+        pauses=PauseConfig(sentence_ms=250, paragraph_ms=600, chapter_ms=1500),
+        pack_sentences=True,
+    )
+
+    # Nothing fits together at 20 characters, and the second sentence still
+    # splits into continuation parts exactly like the unpacked layout.
+    assert [chunk.chunk_id for chunk in manifest.chunks] == [
+        "block-1.s0000.p0000",
+        "block-1.s0001.p0000",
+        "block-1.s0001.p0001",
+        "block-2.s0000.p0000",
+        "block-3.s0000.p0000",
+    ]
+    assert [chunk.pause.break_before for chunk in manifest.chunks] == [
+        BreakKind.CHAPTER,
+        BreakKind.SENTENCE,
+        BreakKind.NONE,
+        BreakKind.PARAGRAPH,
+        BreakKind.CHAPTER,
+    ]
+
+
+def test_packing_disabled_is_the_default_and_unchanged() -> None:
+    document, normalized = _documents()
+    pauses = PauseConfig(sentence_ms=250, paragraph_ms=600, chapter_ms=1500)
+
+    default = build_chunk_manifest(
+        document,
+        normalized,
+        book_document_sha256=BOOK_REFERENCE_SHA256,
+        normalized_document_sha256=NORMALIZED_REFERENCE_SHA256,
+        max_characters=40,
+        pauses=pauses,
+    )
+    explicit = build_chunk_manifest(
+        document,
+        normalized,
+        book_document_sha256=BOOK_REFERENCE_SHA256,
+        normalized_document_sha256=NORMALIZED_REFERENCE_SHA256,
+        max_characters=40,
+        pauses=pauses,
+        pack_sentences=False,
+    )
+
+    assert default == explicit
+    assert [chunk.chunk_id for chunk in default.chunks] == [
+        "block-1.s0000.p0000",
+        "block-1.s0001.p0000",
+        "block-2.s0000.p0000",
+        "block-3.s0000.p0000",
+    ]
+
+
 def test_chunking_rejects_stale_or_mismatched_normalized_documents() -> None:
     document, normalized = _documents()
     stale = normalized.model_copy(update={"book_document_sha256": "e" * 64})

@@ -115,6 +115,9 @@ class ChunkingConfig(ContractModel):
     """Text limits applied before model qualification."""
 
     max_characters: int = Field(gt=0)
+    # Packing amortizes per-chunk model overhead; it changes chunk identities,
+    # so enabling it on an existing book regenerates all audio.
+    pack_sentences: bool = False
 
 
 class VoiceConfig(ContractModel):
