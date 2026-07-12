@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from bilbo_tts.qualification.asr import MODEL_ID, MODEL_REVISION, transcribe_wav
+from bilbo_tts.asr import MODEL_ID, MODEL_REVISION, MlxWhisperTranscriber
+from bilbo_tts.qualification.audio import validate_wav_bytes
 from bilbo_tts.qualification.candidates import candidate_path, load_asr_candidate
 
 ROOT = Path(__file__).parents[2]
@@ -35,7 +36,8 @@ def test_whisper_transcribes_existing_tts_wav_on_apple_silicon() -> None:
     )
     config = load_asr_candidate(candidate_path(ROOT, "asr"))
 
-    transcript = transcribe_wav(wav_path, config)
+    validate_wav_bytes(wav_path.read_bytes())
+    transcript = MlxWhisperTranscriber(config).transcribe(wav_path)
 
     assert config.model_id == MODEL_ID
     assert config.revision == MODEL_REVISION

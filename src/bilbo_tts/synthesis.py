@@ -20,9 +20,11 @@ from bilbo_tts.models import (
     GenerationRecord,
     NonEmptyText,
     NormalizedDocument,
+    ReviewStatus,
     Sha256,
     SynthesisIdentity,
     SynthesisSettings,
+    VerificationManifest,
     VoiceIdentity,
 )
 from bilbo_tts.normalization.service import NORMALIZED_PATH
@@ -32,7 +34,7 @@ from bilbo_tts.qualification.audio import (
     validate_wav_bytes,
 )
 from bilbo_tts.qualification.candidates import TtsCandidateConfig
-from bilbo_tts.serialization import sha256_bytes
+from bilbo_tts.serialization import canonical_sha256, sha256_bytes
 from bilbo_tts.stages import load_stage_context
 from bilbo_tts.tts import TtsEngine, TtsRequest
 from bilbo_tts.tts.factory import (
@@ -44,6 +46,7 @@ from bilbo_tts.tts.validation import validate_result
 
 GENERATION_MANIFEST_PATH = "manifests/generation-manifest.json"
 SYNTHESIS_REPORT_PATH = "reports/synthesis.md"
+VERIFICATION_MANIFEST_PATH = "manifests/verification-manifest.json"
 
 EngineFactory = Callable[[TtsCandidateConfig, Path], TtsEngine]
 
@@ -79,6 +82,7 @@ def synthesize_book(
     chunk_end: int | None = None,
     failed_only: bool = False,
     force: bool = False,
+    verification_retry: bool = False,
     engine_factory: EngineFactory = create_tts_engine,
 ) -> SynthesizeSummary:
     """Generate selected chunks while retaining every valid current output."""
@@ -99,6 +103,7 @@ def synthesize_book(
         chunk.chunk_id: _read_current_state(store, chunk, identities[chunk.chunk_id])
         for chunk in chunks.chunks
     }
+    retry_numbers = _verification_retry_numbers(store, current) if verification_retry else {}
     selected = _select_chunks(
         chunks,
         current,
@@ -107,7 +112,13 @@ def synthesize_book(
         chunk_end=chunk_end,
         failed_only=failed_only,
     )
-    pending = [chunk for chunk in selected if force or current[chunk.chunk_id][0] is None]
+    if verification_retry:
+        selected = [chunk for chunk in selected if chunk.chunk_id in retry_numbers]
+    pending = [
+        chunk
+        for chunk in selected
+        if force or verification_retry or current[chunk.chunk_id][0] is None
+    ]
 
     generated_count = 0
     run_failures: list[GenerationFailure] = []
@@ -124,6 +135,7 @@ def synthesize_book(
                 candidate.voice,
                 candidate.settings,
                 context.config.synthesis.max_retries,
+                start_retry_number=retry_numbers.get(chunk.chunk_id, 0),
             )
             # _generate_chunk validated and persisted this outcome, so it is
             # authoritative for the manifest without re-reading every WAV.
@@ -314,11 +326,13 @@ def _generate_chunk(
     voice: VoiceConfig,
     settings: SynthesisSettings,
     max_retries: int,
+    *,
+    start_retry_number: int = 0,
 ) -> GenerationRecord | GenerationFailure:
     cache_key = identity.cache_key()
     wav_path, sidecar_path, failure_path = _generation_paths(chunk.chunk_id, cache_key)
     last_error: Exception | None = None
-    for retry_number in range(max_retries + 1):
+    for retry_number in range(start_retry_number, start_retry_number + max_retries + 1):
         try:
             request = TtsRequest(
                 spoken_text=chunk.spoken_text,
@@ -362,6 +376,28 @@ def _generate_chunk(
     )
     store.write(failure_path, failure)
     return failure
+
+
+def _verification_retry_numbers(
+    store: ArtifactStore,
+    current: dict[str, tuple[GenerationRecord | None, GenerationFailure | None]],
+) -> dict[str, int]:
+    manifest = store.read(VERIFICATION_MANIFEST_PATH, VerificationManifest)
+    retry_numbers: dict[str, int] = {}
+    for verification in manifest.records:
+        if verification.status != ReviewStatus.RETRYABLE:
+            continue
+        generation = current.get(verification.chunk_id, (None, None))[0]
+        if generation is None:
+            raise SynthesisError(
+                f"retryable chunk {verification.chunk_id!r} has no current generation"
+            )
+        if verification.generation_sha256 != canonical_sha256(generation):
+            raise SynthesisError(
+                f"verification for chunk {verification.chunk_id!r} does not match current audio"
+            )
+        retry_numbers[verification.chunk_id] = verification.attempt_number + 1
+    return retry_numbers
 
 
 def _attempt_settings(settings: SynthesisSettings, retry_number: int) -> SynthesisSettings:

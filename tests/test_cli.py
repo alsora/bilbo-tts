@@ -14,6 +14,7 @@ from bilbo_tts.models import SourceFormat
 from bilbo_tts.normalization import NormalizationError, NormalizeSummary
 from bilbo_tts.review_service import ChunkReviewSummary, ExtractionReviewSummary
 from bilbo_tts.synthesis import SynthesisError, SynthesizeSummary
+from bilbo_tts.verification import ReviewDecisionSummary, VerifySummary
 
 runner = CliRunner()
 
@@ -294,6 +295,7 @@ def test_synthesize_prints_summary_and_forwards_selectors(
         "chunk_end": 4,
         "failed_only": True,
         "force": True,
+        "verification_retry": False,
     }
 
 
@@ -331,3 +333,108 @@ def test_synthesize_prints_json_error_and_partial_status_exits_nonzero(
 
     assert partial_result.exit_code == 1
     assert json.loads(partial_result.stdout)["status"] == "partial"
+
+
+def test_verify_prints_summary_and_forwards_chapter(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = VerifySummary(
+        status="completed",
+        book_id="book",
+        selected_count=1,
+        transcribed_count=1,
+        reused_count=0,
+        accepted_count=1,
+        retryable_count=0,
+        review_count=0,
+        verification_manifest_path="manifests/verification-manifest.json",
+        verification_manifest_sha256="a" * 64,
+        report_path="reports/verification.md",
+        report_sha256="b" * 64,
+    )
+    arguments: dict[str, object] = {}
+
+    def verify(_config: object, _root: object, **kwargs: object) -> VerifySummary:
+        arguments.update(kwargs)
+        return summary
+
+    monkeypatch.setattr(cli, "run_verification_loop", verify)
+    result = runner.invoke(
+        cli.app,
+        ["verify", "books/book/book.yaml", "--chapter", "chapter-1"],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+    assert arguments == {"chapter": "chapter-1"}
+
+
+def test_verify_review_status_exits_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = VerifySummary(
+        status="review",
+        book_id="book",
+        selected_count=1,
+        transcribed_count=1,
+        reused_count=0,
+        accepted_count=0,
+        retryable_count=0,
+        review_count=1,
+        verification_manifest_path="manifests/verification-manifest.json",
+        verification_manifest_sha256="a" * 64,
+        report_path="reports/verification.md",
+        report_sha256="b" * 64,
+    )
+    monkeypatch.setattr(cli, "run_verification_loop", lambda *_args, **_kwargs: summary)
+
+    result = runner.invoke(cli.app, ["verify", "books/book/book.yaml"])
+
+    assert result.exit_code == 1
+    assert json.loads(result.stdout)["status"] == "review"
+
+
+def test_review_verification_requires_auditable_decision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summary = ReviewDecisionSummary(
+        status="accepted",
+        book_id="book",
+        chunk_id="chunk-1",
+        generation_sha256="a" * 64,
+        verification_manifest_sha256="b" * 64,
+        report_sha256="c" * 64,
+    )
+    monkeypatch.setattr(cli, "record_review_decision", lambda *_args, **_kwargs: summary)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "review-verification",
+            "books/book/book.yaml",
+            "--chunk",
+            "chunk-1",
+            "--action",
+            "accept",
+            "--reviewer",
+            "Ada",
+            "--note",
+            "Listened to the complete chunk.",
+        ],
+    )
+    invalid = runner.invoke(
+        cli.app,
+        [
+            "review-verification",
+            "books/book/book.yaml",
+            "--chunk",
+            "chunk-1",
+            "--action",
+            "skip",
+            "--reviewer",
+            "Ada",
+            "--note",
+            "Not a valid action.",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+    assert invalid.exit_code == 1
+    assert "--action must be" in json.loads(invalid.stdout)["error"]

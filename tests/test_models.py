@@ -19,6 +19,7 @@ from bilbo_tts.models import (
     DocumentBlock,
     GenerationManifest,
     GenerationRecord,
+    ManualReviewDecision,
     ModelIdentity,
     NormalizedBlock,
     NormalizedDocument,
@@ -28,6 +29,7 @@ from bilbo_tts.models import (
     SourceLocation,
     SynthesisIdentity,
     SynthesisSettings,
+    VerificationHeuristics,
     VerificationManifest,
     VerificationRecord,
     VoiceIdentity,
@@ -137,10 +139,14 @@ def make_manifests() -> tuple[
     verification = VerificationManifest(
         book_id=book.book_id,
         generation_manifest_sha256=canonical_sha256(generations),
+        verification_config_sha256=HASH_C,
+        asr_model_id="test/whisper",
+        asr_model_revision="test-revision",
         records=(
             VerificationRecord(
                 chunk_id=chunk.chunk_id,
                 generation_sha256=canonical_sha256(generation_record),
+                attempt_number=0,
                 transcript="Il rendimento è cinque percento.",
                 wer=0.2,
                 cer=0.05,
@@ -153,6 +159,14 @@ def make_manifests() -> tuple[
                 ),
                 duration_ms=2200,
                 speaking_rate_wpm=145.0,
+                heuristics=VerificationHeuristics(
+                    missing_prefix_words=0,
+                    missing_suffix_words=0,
+                    repeated_ngram_count=0,
+                    silence_ratio=0.1,
+                    clipped_sample_ratio=0,
+                    peak_dbfs=-3,
+                ),
                 reason_codes=("minor-asr-difference",),
                 status=ReviewStatus.ACCEPTED,
             ),
@@ -185,6 +199,40 @@ def test_unknown_contract_fields_are_rejected() -> None:
 
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         BookDocument.model_validate(payload)
+
+
+def test_manual_verification_decision_is_explicit_and_status_bound() -> None:
+    record = make_manifests()[-1].records[0]
+    decision = ManualReviewDecision(
+        action="accept",
+        reviewer="human-reviewer",
+        note="Listened to the complete chunk.",
+    )
+
+    accepted = record.model_copy(
+        update={
+            "status": ReviewStatus.ACCEPTED,
+            "reason_codes": (*record.reason_codes, "manual-accept"),
+            "manual_decision": decision,
+            "heuristics": VerificationHeuristics(
+                missing_prefix_words=0,
+                missing_suffix_words=0,
+                repeated_ngram_count=0,
+                silence_ratio=0.2,
+                clipped_sample_ratio=0,
+                peak_dbfs=-3,
+            ),
+        }
+    )
+
+    assert VerificationRecord.model_validate(accepted.model_dump()) == accepted
+    with pytest.raises(ValidationError, match="requires status"):
+        VerificationRecord.model_validate(
+            {
+                **accepted.model_dump(),
+                "status": ReviewStatus.REVIEW,
+            }
+        )
 
 
 def test_book_rejects_duplicate_blocks_and_noncontiguous_chapters() -> None:

@@ -109,7 +109,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - The stage processes chunks sequentially, persists exhausted attempts as structured failure sidecars, and rebuilds the current generation manifest after every run.
 - Qualification remains independent of book artifacts and writes canonical evidence below `work/tts-qualification/<engine>/`.
 - [`src/bilbo_tts/asr/`](src/bilbo_tts/asr/): a narrow transcription interface with an MLX-Whisper implementation.
-- [`src/bilbo_tts/verification.py`](src/bilbo_tts/verification.py): JiWER-based scoring, repetition/truncation and duration heuristics, bounded retries, and a machine-readable review queue.
+- [`src/bilbo_tts/verification.py`](src/bilbo_tts/verification.py): shared deterministic edit scoring and alignment, repetition/truncation and audio-duration heuristics, bounded retries, and a machine-readable review queue.
 - [`src/bilbo_tts/assembly.py`](src/bilbo_tts/assembly.py): concatenate lossless PCM with sentence/paragraph/chapter pauses, run two-pass `ffmpeg loudnorm`, create FFMETADATA chapter markers, and encode AAC only once into `.m4b`.
 - [`books/<book-id>/book.yaml`](books/<book-id>/book.yaml): input, title/author, a model config path selecting one candidate under `config/qualification/`, retry policy, thresholds, pause durations, loudness target, and cover settings.
 - A book never duplicates model identity, voice, or generation settings; the referenced candidate file owns them, so books switch models by changing one repository-relative path.
@@ -118,7 +118,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 ## Model and runtime strategy for a 16 GB Apple Silicon Mac
 
 - The interim production default is Kokoro-82M with the `kokoro-nicola-s120` candidate because Chatterbox throughput varies with excerpt length and thermal state but remains impractical for full-book iteration on the target machine; the evidence and measurement limits live in [`performance.md`](performance.md).
-- Chatterbox Multilingual V3 remains the preferred voice and the long-term target; the performance investigation continues in parallel, and returning to Chatterbox as default requires only a book's model config path change once its wall time is acceptable.
+- Chatterbox Multilingual V3 remains the preferred voice and the long-term target; its benchmark and improvement work is deferred until implementation checkpoint C8 is complete, and returning to Chatterbox as default requires only a book's model config path change once its wall time is acceptable.
 - The qualified Chatterbox configuration uses the official PyTorch MPS implementation because no maintained V3 MLX port exists.
 - Pin the Chatterbox code to `65b18437192794391a0308a8f705b1e33e633948` and `ResembleAI/chatterbox` weights to `5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18`.
 - Use the pinned model's built-in `conds.pt` voice without external voice cloning or reference audio.
@@ -148,6 +148,9 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - Keep normalization deterministic and covered by golden tests. The pronunciation YAML is reviewed data, not generated inference. An optional local model may suggest entries later, but should never silently rewrite book text.
 - Compare ASR output to `spoken_text`, not the printed source. Normalize both sides consistently for casing, punctuation, apostrophes, and accent variants.
 - Use WER as one signal, not the sole oracle: combine WER/CER with missing-prefix/suffix detection, repeated n-grams, abnormal duration, and speaking rate. Calibrate thresholds against the bake-off corpus, then retry at most a configured number of times before manual review.
+- The Kokoro calibration permits WER up to `0.70` and CER up to `0.85` because the pinned Whisper model writes correctly spoken percentages, currencies, dates, and ratios as digits; boundary, repetition, silence, clipping, and speaking-rate checks remain independent.
+- Verification runs each ASR pass in a child process that exits before one engine-specific TTS retry process starts, so the two model families are never resident together.
+- Manual accept or regenerate decisions require a reviewer and note, bind to the exact generation checksum, and become stale when audio changes.
 - Assembly should consume only accepted chunks by default; an explicit override may include reviewed exceptions.
 
 ## Implementation and verification

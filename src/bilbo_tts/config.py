@@ -166,6 +166,42 @@ class SynthesisConfig(ContractModel):
         return normalized
 
 
+class VerificationThresholds(ContractModel):
+    """Calibrated limits used to classify generated audio."""
+
+    max_wer: float = Field(default=0.70, ge=0, le=2, allow_inf_nan=False)
+    max_cer: float = Field(default=0.85, ge=0, le=2, allow_inf_nan=False)
+    max_missing_prefix_words: int = Field(default=1, ge=0, le=20)
+    max_missing_suffix_words: int = Field(default=1, ge=0, le=20)
+    max_repeated_ngram_count: int = Field(default=0, ge=0, le=20)
+    max_silence_ratio: float = Field(default=0.95, ge=0, le=1, allow_inf_nan=False)
+    max_clipped_sample_ratio: float = Field(default=0.001, ge=0, le=1, allow_inf_nan=False)
+    min_speaking_rate_wpm: float = Field(default=70, gt=0, le=2_000, allow_inf_nan=False)
+    max_speaking_rate_wpm: float = Field(default=260, gt=0, le=2_000, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def speaking_rate_range_is_ordered(self) -> Self:
+        if self.min_speaking_rate_wpm >= self.max_speaking_rate_wpm:
+            raise ValueError("minimum speaking rate must be below maximum speaking rate")
+        return self
+
+
+class VerificationConfig(ContractModel):
+    """ASR selection, automatic retry bound, and calibrated thresholds."""
+
+    model_config_path: RelativePath = "config/qualification/asr.yaml"
+    max_auto_retries: int = Field(default=2, ge=0, le=10)
+    thresholds: VerificationThresholds = VerificationThresholds()
+
+    @field_validator("model_config_path")
+    @classmethod
+    def model_config_is_repository_relative_yaml(cls, path: str) -> str:
+        normalized = _validate_relative_path(path)
+        if PurePosixPath(normalized).suffix.lower() not in {".yaml", ".yml"}:
+            raise ValueError("ASR model config path must refer to a YAML file")
+        return normalized
+
+
 class PauseConfig(ContractModel):
     """Pause durations used during final assembly."""
 
@@ -193,6 +229,7 @@ class BookConfig(ContractModel):
     normalization: NormalizationConfig
     chunking: ChunkingConfig
     synthesis: SynthesisConfig
+    verification: VerificationConfig = VerificationConfig()
     assembly: AssemblyConfig = AssemblyConfig()
 
 

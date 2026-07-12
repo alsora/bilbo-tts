@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import hmac
-from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from importlib import import_module
 from pathlib import Path
-from typing import Literal, NamedTuple, Self, cast
+from typing import Literal, Self, cast
 
 from pydantic import Field, TypeAdapter, ValidationError, model_validator
 
 from bilbo_tts.artifacts import ArtifactStore
+from bilbo_tts.asr import (
+    AsrError,
+    MlxWhisperDependencies,
+    MlxWhisperTranscriber,
+    Transcriber,
+)
 from bilbo_tts.models import ContractModel, Identifier, NonEmptyText, Sha256
 from bilbo_tts.qualification.asr_metrics import (
     EditMetric,
@@ -40,8 +44,6 @@ from bilbo_tts.qualification.results import (
 )
 from bilbo_tts.serialization import canonical_json_bytes, canonical_sha256, sha256_bytes
 
-MODEL_ID = "mlx-community/whisper-large-v3-turbo"
-MODEL_REVISION = "a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb"
 RESULT_PATH = "result.json"
 REPORT_PATH = "summary.md"
 
@@ -218,13 +220,6 @@ class AsrQualificationSummary(ContractModel):
         return self
 
 
-class AsrDependencies(NamedTuple):
-    """Injected lazy dependency boundary used by unit tests."""
-
-    snapshot_download: Callable[..., str]
-    transcribe: Callable[..., object]
-
-
 @dataclass(frozen=True)
 class _ValidatedInput:
     excerpt: CorpusExcerpt
@@ -235,7 +230,7 @@ def score_tts_asr(
     candidate_name: str,
     project_root: Path,
     *,
-    dependencies: AsrDependencies | None = None,
+    dependencies: MlxWhisperDependencies | None = None,
 ) -> AsrQualificationSummary:
     """Validate a complete TTS run, then score it sequentially in one ASR process."""
 
@@ -258,8 +253,11 @@ def score_tts_asr(
         source_result,
         corpus,
     )
-    loaded_dependencies = dependencies or _import_dependencies()
-    snapshot = _resolve_snapshot(loaded_dependencies, asr)
+    try:
+        transcriber = MlxWhisperTranscriber(asr, dependencies=dependencies)
+        transcriber.prepare()
+    except AsrError as error:
+        raise QualificationError(str(error)) from error
     return _score_validated_inputs(
         candidate_name=candidate_name,
         engine=source_result.engine,
@@ -267,28 +265,8 @@ def score_tts_asr(
         source_result_sha256=sha256_bytes(source_bytes),
         corpus=corpus,
         asr=asr,
-        snapshot=snapshot,
         inputs=validated_inputs,
-        transcribe=loaded_dependencies.transcribe,
-    )
-
-
-def transcribe_wav(wav_path: Path, asr: AsrCandidateConfig) -> str:
-    """Transcribe one validated WAV for the opt-in ASR hardware smoke test."""
-
-    _validate_pinned_asr(asr)
-    try:
-        data = wav_path.expanduser().resolve().read_bytes()
-    except OSError as error:
-        raise QualificationError(f"cannot read ASR smoke-test WAV {wav_path}: {error}") from error
-    validate_wav_bytes(data)
-    dependencies = _import_dependencies()
-    snapshot = _resolve_snapshot(dependencies, asr)
-    return _transcript_text(
-        dependencies.transcribe(
-            str(wav_path.expanduser().resolve()),
-            **_transcribe_kwargs(snapshot),
-        )
+        transcriber=transcriber,
     )
 
 
@@ -362,13 +340,10 @@ def _score_validated_inputs(
     source_result_sha256: str,
     corpus: QualificationCorpus,
     asr: AsrCandidateConfig,
-    snapshot: str,
     inputs: tuple[_ValidatedInput, ...],
-    transcribe: Callable[..., object],
+    transcriber: Transcriber,
 ) -> AsrQualificationSummary:
-    samples = tuple(
-        _score_sample(item, snapshot=snapshot, transcribe=transcribe) for item in inputs
-    )
+    samples = tuple(_score_sample(item, transcriber=transcriber) for item in inputs)
     failed_count = sum(sample.status == "failed" for sample in samples)
     status: Literal["completed", "partial", "failed"] = (
         "completed"
@@ -424,14 +399,12 @@ def _score_validated_inputs(
 def _score_sample(
     item: _ValidatedInput,
     *,
-    snapshot: str,
-    transcribe: Callable[..., object],
+    transcriber: Transcriber,
 ) -> AsrQualificationSample:
     reference = item.excerpt.spoken_text
     normalized_reference = normalize_comparison_text(reference)
     try:
-        response = transcribe(str(item.wav_path), **_transcribe_kwargs(snapshot))
-        transcript = _transcript_text(response)
+        transcript = transcriber.transcribe(item.wav_path)
         normalized_transcript = normalize_comparison_text(transcript)
         return AsrQualificationSample(
             excerpt_id=item.excerpt.excerpt_id,
@@ -445,6 +418,7 @@ def _score_sample(
             cer=character_error_rate(normalized_reference, normalized_transcript),
         )
     except Exception as error:
+        evidence_error = QualificationError(str(error)) if isinstance(error, AsrError) else error
         return AsrQualificationSample(
             excerpt_id=item.excerpt.excerpt_id,
             categories=item.excerpt.categories,
@@ -452,11 +426,11 @@ def _score_sample(
             normalized_reference=normalized_reference,
             status="failed",
             failure=AsrFailure(
-                exception_type=type(error).__name__,
+                exception_type=type(evidence_error).__name__,
                 message=(
                     "MLX-Whisper transcription failed; inspect this WAV and rerun "
                     f"`bilbo score-tts-asr {item.wav_path.parent.parent.name}`: "
-                    f"{str(error) or repr(error)}"
+                    f"{str(evidence_error) or repr(evidence_error)}"
                 ),
             ),
         )
@@ -580,13 +554,10 @@ def _sum_metrics(metrics: tuple[EditMetric, ...]) -> EditMetric:
 
 
 def _validate_pinned_asr(asr: AsrCandidateConfig) -> None:
-    if asr.model_id != MODEL_ID or asr.revision != MODEL_REVISION:
-        raise QualificationError(
-            f"ASR qualification requires pinned model {MODEL_ID}@{MODEL_REVISION}; "
-            f"got {asr.model_id}@{asr.revision}"
-        )
-    if asr.engine != "mlx-whisper" or asr.backend != "mlx" or asr.language != "it":
-        raise QualificationError("ASR qualification requires the committed Italian MLX config")
+    try:
+        MlxWhisperTranscriber(asr)
+    except AsrError as error:
+        raise QualificationError(str(error)) from error
 
 
 def _read_source_result(path: Path) -> bytes:
@@ -597,53 +568,3 @@ def _read_source_result(path: Path) -> bytes:
             f"cannot read TTS qualification result {path}: {error}. Run the TTS "
             "qualification to completion before ASR scoring"
         ) from error
-
-
-def _import_dependencies() -> AsrDependencies:
-    try:
-        hub = import_module("huggingface_hub")
-        whisper = import_module("mlx_whisper")
-        snapshot_download = cast(Callable[..., str], hub.snapshot_download)
-        transcribe = cast(Callable[..., object], whisper.transcribe)
-    except Exception as error:
-        raise QualificationError(
-            "MLX-Whisper dependencies could not be imported; run this command with "
-            f"`pixi run -e asr`: {error}"
-        ) from error
-    return AsrDependencies(snapshot_download=snapshot_download, transcribe=transcribe)
-
-
-def _resolve_snapshot(dependencies: AsrDependencies, asr: AsrCandidateConfig) -> str:
-    try:
-        snapshot = dependencies.snapshot_download(
-            repo_id=asr.model_id,
-            revision=asr.revision,
-        )
-    except Exception as error:
-        raise QualificationError(
-            f"failed to resolve pinned ASR model {asr.model_id}@{asr.revision}: {error}"
-        ) from error
-    if not isinstance(snapshot, str) or not snapshot:
-        raise QualificationError("pinned ASR model resolution returned an invalid local path")
-    return snapshot
-
-
-def _transcribe_kwargs(snapshot: str) -> dict[str, object]:
-    return {
-        "path_or_hf_repo": snapshot,
-        "language": "it",
-        "task": "transcribe",
-        "temperature": 0.0,
-        "fp16": True,
-        "verbose": None,
-        "word_timestamps": False,
-    }
-
-
-def _transcript_text(response: object) -> str:
-    if not isinstance(response, Mapping):
-        raise QualificationError("MLX-Whisper returned a non-mapping transcription result")
-    text = response.get("text")
-    if not isinstance(text, str):
-        raise QualificationError("MLX-Whisper transcription result is missing string field 'text'")
-    return text

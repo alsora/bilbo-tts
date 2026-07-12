@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from bilbo_tts.qualification.asr_metrics import (
+    align_words,
     character_error_rate,
     normalize_comparison_text,
     word_error_rate,
@@ -72,3 +73,33 @@ def test_normalization_is_applied_identically_before_metrics() -> None:
 
     assert word_error_rate(reference, transcript).rate == 0
     assert character_error_rate(reference, transcript).rate == 0
+
+
+def test_word_alignment_reports_edits_and_boundary_deletions() -> None:
+    alignment = align_words(
+        "prima uno due ultima",
+        "uno due",
+    )
+
+    assert [(edit.operation, edit.expected, edit.actual) for edit in alignment.edits] == [
+        ("delete", "prima", ""),
+        ("delete", "ultima", ""),
+    ]
+    assert alignment.missing_prefix_words == 1
+    assert alignment.missing_suffix_words == 1
+
+
+def test_word_alignment_uses_metric_tie_breaking() -> None:
+    metric = word_error_rate("uno due", "due uno")
+    alignment = align_words("uno due", "due uno")
+
+    counts = {
+        "substitute": sum(edit.operation == "substitute" for edit in alignment.edits),
+        "delete": sum(edit.operation == "delete" for edit in alignment.edits),
+        "insert": sum(edit.operation == "insert" for edit in alignment.edits),
+    }
+    assert counts == {
+        "substitute": metric.substitutions,
+        "delete": metric.deletions,
+        "insert": metric.insertions,
+    }

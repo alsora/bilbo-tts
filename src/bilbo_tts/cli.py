@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated, Never
+from typing import Annotated, Literal, Never, cast
 
 import typer
 
@@ -37,6 +37,12 @@ from bilbo_tts.serialization import canonical_json_bytes
 from bilbo_tts.stages import StageError
 from bilbo_tts.synthesis import SynthesisError, synthesize_book
 from bilbo_tts.tts import TtsError
+from bilbo_tts.verification import (
+    VerificationError,
+    record_review_decision,
+    verify_book_pass,
+)
+from bilbo_tts.verification_process import run_verification_loop
 
 app = typer.Typer(
     help="Build reproducible Italian audiobooks.",
@@ -199,6 +205,10 @@ def synthesize(
         bool,
         typer.Option("--force", help="Regenerate valid selected chunks."),
     ] = False,
+    verification_retry: Annotated[
+        bool,
+        typer.Option("--verification-retry", hidden=True),
+    ] = False,
 ) -> None:
     """Generate validated, resumable WAV files for configured chunks."""
 
@@ -211,6 +221,7 @@ def synthesize(
             chunk_end=chunk_end,
             failed_only=failed_only,
             force=force,
+            verification_retry=verification_retry,
         )
     except (
         ArtifactError,
@@ -225,6 +236,107 @@ def synthesize(
     typer.echo(canonical_json_bytes(summary).decode("utf-8"))
     if summary.status != "completed":
         raise typer.Exit(code=1)
+
+
+@app.command()
+def verify(
+    config: ConfigArgument,
+    project_root: ProjectRootOption = Path("."),
+    chapter: Annotated[
+        str | None,
+        typer.Option("--chapter", help="Verify only this stable chapter identifier."),
+    ] = None,
+) -> None:
+    """Verify generated audio with isolated ASR and bounded TTS retries."""
+
+    try:
+        summary = run_verification_loop(
+            config,
+            project_root,
+            chapter=chapter,
+        )
+    except (
+        ArtifactError,
+        CandidateConfigurationError,
+        ConfigurationError,
+        StageError,
+        VerificationError,
+    ) as error:
+        _fail_stage("verify-summary/v1", error)
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+    if summary.status != "completed":
+        raise typer.Exit(code=1)
+
+
+@app.command("verify-pass", hidden=True)
+def verify_pass_command(
+    config: ConfigArgument,
+    project_root: ProjectRootOption = Path("."),
+    chapter: Annotated[
+        str | None,
+        typer.Option("--chapter", help="Verify only this stable chapter identifier."),
+    ] = None,
+) -> None:
+    """Run one verification pass inside the isolated ASR environment."""
+
+    try:
+        summary = verify_book_pass(config, project_root, chapter=chapter)
+    except (
+        ArtifactError,
+        CandidateConfigurationError,
+        ConfigurationError,
+        StageError,
+        VerificationError,
+    ) as error:
+        _fail_stage("verify-summary/v1", error)
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
+
+
+@app.command("review-verification")
+def review_verification_command(
+    config: ConfigArgument,
+    chunk: Annotated[
+        str,
+        typer.Option("--chunk", help="Stable chunk identifier requiring review."),
+    ],
+    action: Annotated[
+        str,
+        typer.Option("--action", help="Human decision: accept or regenerate."),
+    ],
+    reviewer: Annotated[
+        str,
+        typer.Option("--reviewer", help="Person making the review decision."),
+    ],
+    note: Annotated[
+        str,
+        typer.Option("--note", help="Non-empty reason for the decision."),
+    ],
+    project_root: ProjectRootOption = Path("."),
+) -> None:
+    """Record an explicit generation-bound review decision."""
+
+    if action not in {"accept", "regenerate"}:
+        _fail_stage(
+            "review-decision-summary/v1",
+            VerificationError("--action must be 'accept' or 'regenerate'"),
+        )
+    try:
+        summary = record_review_decision(
+            config,
+            project_root,
+            chunk_id=chunk,
+            action=cast(Literal["accept", "regenerate"], action),
+            reviewer=reviewer,
+            note=note,
+        )
+    except (
+        ArtifactError,
+        ConfigurationError,
+        StageError,
+        VerificationError,
+    ) as error:
+        _fail_stage("review-decision-summary/v1", error)
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
 
 
 @app.command("qualify-tts")

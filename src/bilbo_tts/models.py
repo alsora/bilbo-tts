@@ -411,28 +411,68 @@ class AlignmentEdit(ContractModel):
     actual: str
 
 
+class VerificationHeuristics(ContractModel):
+    """Measured non-ASR signals used to classify one generated WAV."""
+
+    missing_prefix_words: int = Field(ge=0)
+    missing_suffix_words: int = Field(ge=0)
+    repeated_ngram_count: int = Field(ge=0)
+    silence_ratio: float = Field(ge=0, le=1, allow_inf_nan=False)
+    clipped_sample_ratio: float = Field(ge=0, le=1, allow_inf_nan=False)
+    peak_dbfs: float = Field(le=0, ge=-120, allow_inf_nan=False)
+
+
+class ManualReviewDecision(ContractModel):
+    """Explicit human disposition bound to one generated audio attempt."""
+
+    action: Literal["accept", "regenerate"]
+    reviewer: NonEmptyText
+    note: NonEmptyText
+
+
 class VerificationRecord(ContractModel):
     """ASR and audio checks for one generated chunk."""
 
-    schema_version: Literal["verification-record/v1"] = "verification-record/v1"
+    schema_version: Literal["verification-record/v2"] = "verification-record/v2"
     chunk_id: Identifier
     generation_sha256: Sha256
+    attempt_number: int = Field(ge=0)
     transcript: str
     wer: float = Field(ge=0)
     cer: float = Field(ge=0)
     alignment: tuple[AlignmentEdit, ...] = ()
     duration_ms: int = Field(gt=0)
     speaking_rate_wpm: float = Field(gt=0)
+    heuristics: VerificationHeuristics
     reason_codes: tuple[Identifier, ...] = ()
     status: ReviewStatus
+    manual_decision: ManualReviewDecision | None = None
+
+    @model_validator(mode="after")
+    def decision_matches_status(self) -> Self:
+        decision = self.manual_decision
+        if decision is None:
+            return self
+        expected = ReviewStatus.ACCEPTED if decision.action == "accept" else ReviewStatus.RETRYABLE
+        if self.status != expected:
+            raise ValueError(
+                f"manual {decision.action} decision requires status {expected.value!r}"
+            )
+        reason = f"manual-{decision.action}"
+        if reason not in self.reason_codes:
+            raise ValueError(f"manual {decision.action} decision requires reason code {reason!r}")
+        return self
 
 
 class VerificationManifest(ContractModel):
     """Verification results associated with generated records."""
 
-    schema_version: Literal["verification-manifest/v1"] = "verification-manifest/v1"
+    schema_version: Literal["verification-manifest/v2"] = "verification-manifest/v2"
     book_id: Identifier
     generation_manifest_sha256: Sha256
+    verification_config_sha256: Sha256
+    asr_model_id: NonEmptyText
+    asr_model_revision: NonEmptyText
     records: tuple[VerificationRecord, ...]
 
     @field_validator("records")

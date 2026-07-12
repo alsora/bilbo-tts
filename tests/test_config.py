@@ -43,6 +43,21 @@ def valid_config() -> dict[str, object]:
             "model_config_path": "config/qualification/kokoro-nicola-s120.yaml",
             "max_retries": 2,
         },
+        "verification": {
+            "model_config_path": "config/qualification/asr.yaml",
+            "max_auto_retries": 2,
+            "thresholds": {
+                "max_wer": 0.45,
+                "max_cer": 0.30,
+                "max_missing_prefix_words": 1,
+                "max_missing_suffix_words": 1,
+                "max_repeated_ngram_count": 0,
+                "max_silence_ratio": 0.95,
+                "max_clipped_sample_ratio": 0.001,
+                "min_speaking_rate_wpm": 70,
+                "max_speaking_rate_wpm": 260,
+            },
+        },
         "assembly": {
             "pauses": {
                 "sentence_ms": 250,
@@ -69,6 +84,8 @@ def test_load_valid_book_config(tmp_path: Path) -> None:
     assert config.input.path == "source/book.tex"
     assert config.chunking.max_characters == 300
     assert config.synthesis.model_config_path == "config/qualification/kokoro-nicola-s120.yaml"
+    assert config.verification.max_auto_retries == 2
+    assert config.verification.thresholds.max_wer == 0.45
     assert BookConfig.model_validate_json(config.model_dump_json()) == config
 
 
@@ -85,6 +102,24 @@ def test_model_config_path_must_be_a_relative_yaml_file(path: str) -> None:
     payload["synthesis"] = {"model_config_path": path}
 
     with pytest.raises(ValidationError, match="path must"):
+        BookConfig.model_validate(payload)
+
+
+def test_verification_thresholds_are_strict_and_ordered() -> None:
+    payload = valid_config()
+    payload["verification"] = {
+        "model_config_path": "config/qualification/asr.json",
+        "thresholds": {"min_speaking_rate_wpm": 300, "max_speaking_rate_wpm": 200},
+    }
+
+    with pytest.raises(ValidationError, match="YAML"):
+        BookConfig.model_validate(payload)
+
+    payload["verification"] = {
+        "model_config_path": "config/qualification/asr.yaml",
+        "thresholds": {"min_speaking_rate_wpm": 300, "max_speaking_rate_wpm": 200},
+    }
+    with pytest.raises(ValidationError, match="minimum speaking rate"):
         BookConfig.model_validate(payload)
 
 

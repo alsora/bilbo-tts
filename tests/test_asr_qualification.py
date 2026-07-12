@@ -6,10 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from bilbo_tts.asr import MODEL_ID, MODEL_REVISION, MlxWhisperDependencies
 from bilbo_tts.qualification.asr import (
-    MODEL_ID,
-    MODEL_REVISION,
-    AsrDependencies,
     AsrQualificationResult,
     score_tts_asr,
 )
@@ -70,7 +68,7 @@ def test_scorer_resolves_pin_once_transcribes_full_corpus_sequentially_and_repor
     summary = score_tts_asr(
         "fake",
         tmp_path,
-        dependencies=AsrDependencies(snapshot_download, transcribe),
+        dependencies=MlxWhisperDependencies(snapshot_download, transcribe),
     )
 
     output_root = tmp_path / "work" / "tts-qualification" / "asr" / "fake"
@@ -126,7 +124,7 @@ def test_scorer_accepts_named_variants_and_rejects_mismatched_directories(
     summary = score_tts_asr(
         "fake-fast",
         tmp_path,
-        dependencies=AsrDependencies(lambda **_kwargs: "/snapshot", transcribe),
+        dependencies=MlxWhisperDependencies(lambda **_kwargs: "/snapshot", transcribe),
     )
     output = tmp_path / "work" / "tts-qualification" / "asr" / "fake-fast"
     result = AsrQualificationResult.model_validate(
@@ -145,7 +143,7 @@ def test_scorer_accepts_named_variants_and_rejects_mismatched_directories(
         score_tts_asr(
             "fake-other",
             tmp_path,
-            dependencies=AsrDependencies(lambda **_kwargs: "/snapshot", transcribe),
+            dependencies=MlxWhisperDependencies(lambda **_kwargs: "/snapshot", transcribe),
         )
 
 
@@ -164,7 +162,7 @@ def test_scorer_records_partial_failure_and_continues_sequentially(tmp_path: Pat
     summary = score_tts_asr(
         "fake",
         tmp_path,
-        dependencies=AsrDependencies(lambda **_kwargs: "/snapshot", transcribe),
+        dependencies=MlxWhisperDependencies(lambda **_kwargs: "/snapshot", transcribe),
     )
 
     output = tmp_path / "work" / "tts-qualification" / "asr" / "fake"
@@ -205,7 +203,7 @@ def test_scorer_validates_every_wav_before_snapshot_or_transcription(tmp_path: P
         score_tts_asr(
             "fake",
             tmp_path,
-            dependencies=AsrDependencies(snapshot_download, transcribe),
+            dependencies=MlxWhisperDependencies(snapshot_download, transcribe),
         )
 
     assert calls == []
@@ -226,7 +224,7 @@ def test_scorer_rejects_incomplete_result_before_loading_model(tmp_path: Path) -
         score_tts_asr(
             "fake",
             tmp_path,
-            dependencies=AsrDependencies(
+            dependencies=MlxWhisperDependencies(
                 snapshot_download,
                 lambda _path, **_kwargs: {"text": ""},
             ),
