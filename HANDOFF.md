@@ -8,7 +8,7 @@
 - C8 is deliberately scoped to `chapter-0002` through `chapter-0006` and will produce one five-chapter M4B after listening review clears the verification gate.
 - The ignored target workspace is `work/c2-target-project/work/tts-investimento/`.
 - All 2,819 selected chunks have current Kokoro audio.
-- Verification accepted 2,800 selected chunks, queued none for automatic retry, and left 19 chunks requiring human listening review.
+- Verification accepted 2,813 selected chunks, queued none for automatic retry, and left 6 known chunks requiring review.
 - Assembly and bundle publication have not run because unreviewed chunks correctly block them.
 - The deterministic checklist is `reports/listening-checklist.md`, and the matching 47-item playlist is `reports/listening-checklist.m3u` in the target workspace.
 - The existing checklist contains the original 22 flagged chunks and five deterministic accepted samples from each selected chapter; refresh it after all pronunciation fixes are regenerated.
@@ -32,7 +32,8 @@
 - Three chapter-0003 chunks containing `INPS` were selectively regenerated, and ASR accepted the reviewed target chunk with no reason codes.
 - The new target audio is `audio/block-000110.s0000.p0000/87f1513de6c0628a864e3d673b43f26742dacb569075a593284532782002e9a2.wav`.
 - The five accepted Kokoro fixes were regenerated selectively; the two still-flagged number and year chunks now carry explicit human accept decisions.
-- The remaining 19 review records are dominated by URL, notation, proper-name, short-heading, and the context-specific `interesse` mismatch.
+- The 13 listened chunks omitted from the user's problem list now carry explicit human accept decisions.
+- The remaining six review records are the four source-owned URLs, the isolated `Oro` title, and the context-specific `interesse` mismatch.
 
 ## Durable references
 
