@@ -12,6 +12,7 @@ from bilbo_tts.assembly import (
     _encode_command,
     _escape_metadata,
     _measurement,
+    _output_path,
     _parse_loudnorm_json,
     _select_chunks,
     _validate_inputs,
@@ -312,9 +313,19 @@ def test_pcm_timeline_preserves_order_pauses_and_chapter_boundaries(tmp_path: Pa
 def test_selection_and_metadata_escaping_are_strict(tmp_path: Path) -> None:
     chunks = _artifacts(tmp_path)[2]
 
-    assert [chunk.chunk_id for chunk in _select_chunks(chunks, "chapter-2")] == ["chunk-2"]
+    assert [chunk.chunk_id for chunk in _select_chunks(chunks, ("chapter-2",))] == ["chunk-2"]
+    assert [chunk.chunk_id for chunk in _select_chunks(chunks, ("chapter-1", "chapter-2"))] == [
+        "chunk-1",
+        "chunk-2",
+    ]
     with pytest.raises(AssemblyError, match="does not exist"):
-        _select_chunks(chunks, "missing")
+        _select_chunks(chunks, ("missing",))
+    assert _output_path("book", None) == "media/book.m4b"
+    assert _output_path("book", ("chapter-2",)) == "media/book-chapter-2.m4b"
+    assert (
+        _output_path("book", ("chapter-2", "chapter-3", "chapter-4"))
+        == "media/book-chapter-2-to-chapter-4.m4b"
+    )
     assert _escape_metadata(r"A=B; C#D\E") == r"A\=B\; C\#D\\E"
 
 

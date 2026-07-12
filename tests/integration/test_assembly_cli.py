@@ -8,7 +8,9 @@ from typing import Any, cast
 
 import pytest
 import yaml
+from typer.testing import CliRunner
 
+from bilbo_tts import cli
 from bilbo_tts.artifacts import ArtifactStore
 from bilbo_tts.assembly import ASSEMBLY_MANIFEST_PATH
 from bilbo_tts.chunk_service import CHUNK_MANIFEST_PATH
@@ -118,3 +120,26 @@ def test_assemble_cli_creates_valid_idempotent_m4b(
     assert manifest.media.tags["title"] == "Piccolo libro LaTeX"
     assert manifest.media.cover_art is with_cover
     assert manifest.loudness[-1].phase == "output"
+
+    if not with_cover:
+        chapter_ids = tuple(dict.fromkeys(chunk.chapter_id for chunk in chunks.chunks))
+        scope = chapter_ids[:2]
+        scoped = CliRunner().invoke(
+            cli.app,
+            [
+                "assemble",
+                str(config_path),
+                "--project-root",
+                str(project_root),
+                "--chapter",
+                scope[0],
+                "--chapter",
+                scope[1],
+            ],
+        )
+        assert scoped.exit_code == 0, scoped.output
+        scoped_manifest = store.read(ASSEMBLY_MANIFEST_PATH, AssemblyManifest)
+        assert scoped_manifest.schema_version == "assembly-manifest/v2"
+        assert scoped_manifest.scope_chapter_ids == scope
+        assert scoped_manifest.output_path == (f"media/tiny-latex-{scope[0]}-to-{scope[1]}.m4b")
+        assert tuple(chapter.chapter_id for chapter in scoped_manifest.chapters) == scope

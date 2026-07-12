@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from bilbo_tts.artifacts import ArtifactStore
+from bilbo_tts.models import BreakKind, ChunkManifest, ChunkRecord, PauseMetadata
 from bilbo_tts.verification import VerifySummary
 from bilbo_tts.verification_process import run_verification_loop
 
@@ -52,6 +54,30 @@ def _project(tmp_path: Path) -> tuple[Path, Path]:
         ),
         encoding="utf-8",
     )
+    store = ArtifactStore(root / "work" / "book")
+    store.write(
+        "manifests/chunk-manifest.json",
+        ChunkManifest(
+            book_id="book",
+            normalized_document_sha256="a" * 64,
+            chunks=tuple(
+                ChunkRecord.create(
+                    chunk_id=f"chunk-{index}",
+                    chapter_id=f"chapter-{index:04d}",
+                    paragraph_id=f"paragraph-{index}",
+                    sentence_id=f"sentence-{index}",
+                    sequence=index - 1,
+                    display_text=f"Capitolo {index}.",
+                    spoken_text=f"Capitolo {index}.",
+                    pause=PauseMetadata(
+                        break_before=BreakKind.CHAPTER,
+                        duration_ms=100,
+                    ),
+                )
+                for index in (1, 2)
+            ),
+        ),
+    )
     return config_path, root
 
 
@@ -88,7 +114,7 @@ def test_loop_exits_asr_before_starting_one_tts_retry_process(tmp_path: Path) ->
     result = run_verification_loop(
         config_path,
         root,
-        chapter="chapter-0002",
+        chapters=("chapter-0001", "chapter-0002"),
         command_runner=run,
         pixi_executable=tmp_path / "pixi",
     )
@@ -99,4 +125,8 @@ def test_loop_exits_asr_before_starting_one_tts_retry_process(tmp_path: Path) ->
     assert commands[1][2:4] == ["-e", "default"]
     assert "--verification-retry" in commands[1]
     assert commands[2][2:4] == ["-e", "asr"]
-    assert all("--chapter" in command for command in commands)
+    assert all(
+        [command[index + 1] for index, argument in enumerate(command) if argument == "--chapter"]
+        == ["chapter-0001", "chapter-0002"]
+        for command in commands
+    )

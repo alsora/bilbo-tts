@@ -554,9 +554,9 @@ class ProbedMedia(ContractModel):
 class AssemblyManifest(ContractModel):
     """Auditable final-media build bound to exact upstream artifacts."""
 
-    schema_version: Literal["assembly-manifest/v1"] = "assembly-manifest/v1"
+    schema_version: Literal["assembly-manifest/v2"] = "assembly-manifest/v2"
     book_id: Identifier
-    scope_chapter_id: Identifier | None = None
+    scope_chapter_ids: tuple[Identifier, ...]
     book_document_sha256: Sha256
     chunk_manifest_sha256: Sha256
     generation_manifest_sha256: Sha256
@@ -578,10 +578,13 @@ class AssemblyManifest(ContractModel):
     def timeline_and_override_are_consistent(self) -> Self:
         _require_unique((record.chunk_id for record in self.inputs), "assembly input chunk_id")
         _require_unique((chapter.chapter_id for chapter in self.chapters), "chapter marker id")
+        _require_unique(self.scope_chapter_ids, "scope chapter_id")
         if not self.inputs:
             raise ValueError("assembly inputs must not be empty")
         if not self.chapters:
             raise ValueError("assembly chapters must not be empty")
+        if self.scope_chapter_ids != tuple(chapter.chapter_id for chapter in self.chapters):
+            raise ValueError("scope chapter IDs must match chapter markers in order")
         if bool(self.unaccepted_chunk_ids) != bool(self.override_note):
             raise ValueError("unaccepted chunks and override_note must be provided together")
         if self.chapters[0].start_frame != 0:

@@ -181,6 +181,7 @@ def make_manifests() -> tuple[
     )
     assembly = AssemblyManifest(
         book_id=book.book_id,
+        scope_chapter_ids=("chapter-1",),
         book_document_sha256=HASH_A,
         chunk_manifest_sha256=HASH_B,
         generation_manifest_sha256=HASH_C,

@@ -321,7 +321,7 @@ def test_chapter_range_and_force_filters_intersect(tmp_path: Path) -> None:
     first = synthesize_book(
         config,
         root,
-        chapter="chapter-1",
+        chapters=("chapter-1",),
         chunk_start=1,
         chunk_end=1,
         engine_factory=fake_factory,
@@ -329,7 +329,7 @@ def test_chapter_range_and_force_filters_intersect(tmp_path: Path) -> None:
     forced = synthesize_book(
         config,
         root,
-        chapter="chapter-1",
+        chapters=("chapter-1",),
         chunk_start=1,
         chunk_end=1,
         force=True,
@@ -368,7 +368,7 @@ def test_invalid_selectors_fail_before_engine_construction(
             config,
             root,
             engine_factory=unexpected_factory,
-            chapter=chapter,
+            chapters=(chapter,) if chapter is not None else None,
             chunk_start=chunk_start,
             chunk_end=chunk_end,
         )

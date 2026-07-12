@@ -187,8 +187,11 @@ def synthesize(
     config: ConfigArgument,
     project_root: ProjectRootOption = Path("."),
     chapter: Annotated[
-        str | None,
-        typer.Option("--chapter", help="Synthesize only this stable chapter identifier."),
+        list[str] | None,
+        typer.Option(
+            "--chapter",
+            help="Synthesize this chapter; repeat in manifest order for a contiguous scope.",
+        ),
     ] = None,
     chunk_start: Annotated[
         int | None,
@@ -217,7 +220,7 @@ def synthesize(
         summary = synthesize_book(
             config,
             project_root,
-            chapter=chapter,
+            chapters=tuple(chapter) if chapter else None,
             chunk_start=chunk_start,
             chunk_end=chunk_end,
             failed_only=failed_only,
@@ -244,8 +247,11 @@ def verify(
     config: ConfigArgument,
     project_root: ProjectRootOption = Path("."),
     chapter: Annotated[
-        str | None,
-        typer.Option("--chapter", help="Verify only this stable chapter identifier."),
+        list[str] | None,
+        typer.Option(
+            "--chapter",
+            help="Verify this chapter; repeat in manifest order for a contiguous scope.",
+        ),
     ] = None,
 ) -> None:
     """Verify generated audio with isolated ASR and bounded TTS retries."""
@@ -254,7 +260,7 @@ def verify(
         summary = run_verification_loop(
             config,
             project_root,
-            chapter=chapter,
+            chapters=tuple(chapter) if chapter else None,
         )
     except (
         ArtifactError,
@@ -274,8 +280,11 @@ def assemble(
     config: ConfigArgument,
     project_root: ProjectRootOption = Path("."),
     chapter: Annotated[
-        str | None,
-        typer.Option("--chapter", help="Assemble only this stable chapter identifier."),
+        list[str] | None,
+        typer.Option(
+            "--chapter",
+            help="Assemble this chapter; repeat in manifest order for a contiguous scope.",
+        ),
     ] = None,
     allow_unaccepted: Annotated[
         bool,
@@ -302,7 +311,7 @@ def assemble(
         summary = assemble_book(
             config,
             project_root,
-            chapter=chapter,
+            chapters=tuple(chapter) if chapter else None,
             allow_unaccepted=allow_unaccepted,
             override_note=override_note,
             force=force,
@@ -322,14 +331,21 @@ def verify_pass_command(
     config: ConfigArgument,
     project_root: ProjectRootOption = Path("."),
     chapter: Annotated[
-        str | None,
-        typer.Option("--chapter", help="Verify only this stable chapter identifier."),
+        list[str] | None,
+        typer.Option(
+            "--chapter",
+            help="Verify this chapter; repeat in manifest order for a contiguous scope.",
+        ),
     ] = None,
 ) -> None:
     """Run one verification pass inside the isolated ASR environment."""
 
     try:
-        summary = verify_book_pass(config, project_root, chapter=chapter)
+        summary = verify_book_pass(
+            config,
+            project_root,
+            chapters=tuple(chapter) if chapter else None,
+        )
     except (
         ArtifactError,
         CandidateConfigurationError,

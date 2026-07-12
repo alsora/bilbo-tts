@@ -281,6 +281,8 @@ def test_synthesize_prints_summary_and_forwards_selectors(
             "books/book/book.yaml",
             "--chapter",
             "chapter-1",
+            "--chapter",
+            "chapter-2",
             "--chunk-start",
             "2",
             "--chunk-end",
@@ -293,7 +295,7 @@ def test_synthesize_prints_summary_and_forwards_selectors(
     assert result.exit_code == 0
     assert json.loads(result.stdout) == summary.model_dump(mode="json")
     assert arguments == {
-        "chapter": "chapter-1",
+        "chapters": ("chapter-1", "chapter-2"),
         "chunk_start": 2,
         "chunk_end": 4,
         "failed_only": True,
@@ -362,12 +364,57 @@ def test_verify_prints_summary_and_forwards_chapter(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(cli, "run_verification_loop", verify)
     result = runner.invoke(
         cli.app,
-        ["verify", "books/book/book.yaml", "--chapter", "chapter-1"],
+        [
+            "verify",
+            "books/book/book.yaml",
+            "--chapter",
+            "chapter-1",
+            "--chapter",
+            "chapter-2",
+        ],
     )
 
     assert result.exit_code == 0
     assert json.loads(result.stdout) == summary.model_dump(mode="json")
-    assert arguments == {"chapter": "chapter-1"}
+    assert arguments == {"chapters": ("chapter-1", "chapter-2")}
+
+
+def test_verify_pass_forwards_ordered_chapters(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = VerifySummary(
+        status="completed",
+        book_id="book",
+        selected_count=2,
+        transcribed_count=2,
+        reused_count=0,
+        accepted_count=2,
+        retryable_count=0,
+        review_count=0,
+        verification_manifest_path="manifests/verification-manifest.json",
+        verification_manifest_sha256="a" * 64,
+        report_path="reports/verification.md",
+        report_sha256="b" * 64,
+    )
+    arguments: dict[str, object] = {}
+
+    def verify(_config: object, _root: object, **kwargs: object) -> VerifySummary:
+        arguments.update(kwargs)
+        return summary
+
+    monkeypatch.setattr(cli, "verify_book_pass", verify)
+    result = runner.invoke(
+        cli.app,
+        [
+            "verify-pass",
+            "books/book/book.yaml",
+            "--chapter",
+            "chapter-1",
+            "--chapter",
+            "chapter-2",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert arguments == {"chapters": ("chapter-1", "chapter-2")}
 
 
 def test_verify_review_status_exits_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -420,6 +467,8 @@ def test_assemble_prints_summary_and_forwards_options(monkeypatch: pytest.Monkey
             "books/book/book.yaml",
             "--chapter",
             "chapter-1",
+            "--chapter",
+            "chapter-2",
             "--allow-unaccepted",
             "--override-note",
             "Reviewed for this build.",
@@ -430,7 +479,7 @@ def test_assemble_prints_summary_and_forwards_options(monkeypatch: pytest.Monkey
     assert result.exit_code == 0
     assert json.loads(result.stdout) == summary.model_dump(mode="json")
     assert arguments == {
-        "chapter": "chapter-1",
+        "chapters": ("chapter-1", "chapter-2"),
         "allow_unaccepted": True,
         "override_note": "Reviewed for this build.",
         "force": True,

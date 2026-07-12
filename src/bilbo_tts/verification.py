@@ -16,6 +16,7 @@ from pydantic import Field
 
 from bilbo_tts.artifacts import ArtifactError, ArtifactStore
 from bilbo_tts.asr import MlxWhisperTranscriber, Transcriber
+from bilbo_tts.chapter_selection import ChapterSelectionError, select_chapter_ids
 from bilbo_tts.chunk_service import CHUNK_MANIFEST_PATH
 from bilbo_tts.config import VerificationConfig, VerificationThresholds
 from bilbo_tts.models import (
@@ -96,7 +97,7 @@ def verify_book_pass(
     config_path: Path,
     project_root: Path,
     *,
-    chapter: str | None = None,
+    chapters: tuple[str, ...] | None = None,
     transcriber_factory: TranscriberFactory | None = None,
 ) -> VerifySummary:
     """Verify selected generated chunks once in the ASR process."""
@@ -108,7 +109,7 @@ def verify_book_pass(
     generations = store.read(GENERATION_MANIFEST_PATH, GenerationManifest)
     generation_reference = store.reference(GENERATION_MANIFEST_PATH)
     _validate_upstream(context.config.book_id, chunks, chunk_reference.sha256, generations)
-    selected = _select_chunks(chunks, chapter)
+    selected = _select_chunks(chunks, chapters)
     generation_by_chunk = {record.chunk_id: record for record in generations.records}
     missing = [chunk.chunk_id for chunk in selected if chunk.chunk_id not in generation_by_chunk]
     if missing:
@@ -122,11 +123,12 @@ def verify_book_pass(
         {
             "algorithm_version": VERIFICATION_ALGORITHM_VERSION,
             "config": context.config.verification.model_dump(mode="json"),
+            "asr": asr_config.model_dump(mode="json"),
         }
     )
     factory = transcriber_factory or _default_transcriber_factory
     transcriber: Transcriber | None = None
-    records: list[VerificationRecord] = []
+    selected_records: list[VerificationRecord] = []
     transcribed_count = 0
     for chunk in selected:
         generation = generation_by_chunk[chunk.chunk_id]
@@ -144,7 +146,7 @@ def verify_book_pass(
             generation_sha256,
         )
         if cached is not None:
-            records.append(cached)
+            selected_records.append(cached)
             continue
         if transcriber is None:
             transcriber = factory(asr_config)
@@ -160,16 +162,42 @@ def verify_book_pass(
             Path(generation.output_path).with_suffix(".json").as_posix()
         )
         store.write(attempt_path, record, dependencies=(sidecar_reference,))
-        records.append(record)
+        selected_records.append(record)
         transcribed_count += 1
 
+    record_by_chunk = {record.chunk_id: record for record in selected_records}
+    for chunk in chunks.chunks:
+        if chunk.chunk_id in record_by_chunk:
+            continue
+        existing_generation = generation_by_chunk.get(chunk.chunk_id)
+        if existing_generation is None:
+            continue
+        generation_sha256 = canonical_sha256(existing_generation)
+        cached = _read_cached_attempt(
+            store,
+            _attempt_path(
+                chunk.chunk_id,
+                generation_sha256,
+                verification_config_sha256,
+            ),
+            chunk,
+            existing_generation,
+            generation_sha256,
+        )
+        if cached is not None:
+            record_by_chunk[chunk.chunk_id] = cached
+    records = tuple(
+        record_by_chunk[chunk.chunk_id]
+        for chunk in chunks.chunks
+        if chunk.chunk_id in record_by_chunk
+    )
     manifest = VerificationManifest(
         book_id=chunks.book_id,
         generation_manifest_sha256=generation_reference.sha256,
         verification_config_sha256=verification_config_sha256,
         asr_model_id=asr_config.model_id,
         asr_model_revision=asr_config.revision,
-        records=tuple(records),
+        records=records,
     )
     manifest_reference = store.write(
         VERIFICATION_MANIFEST_PATH,
@@ -184,6 +212,7 @@ def verify_book_pass(
         manifest,
         manifest_reference.sha256,
         report_reference.sha256,
+        selected_records=selected_records,
         transcribed_count=transcribed_count,
     )
 
@@ -276,7 +305,10 @@ def render_verification_report(
     """Render complete current verification evidence and review actions."""
 
     records = {record.chunk_id: record for record in manifest.records}
-    counts = Counter(record.status.value for record in manifest.records)
+    selected_ids = {chunk.chunk_id for chunk in chunks}
+    counts = Counter(
+        record.status.value for record in manifest.records if record.chunk_id in selected_ids
+    )
     lines = [
         f"# Verification report: {manifest.book_id}",
         "",
@@ -556,13 +588,15 @@ def _validate_upstream(
         )
 
 
-def _select_chunks(chunks: ChunkManifest, chapter: str | None) -> list[ChunkRecord]:
-    if chapter is None:
-        selected = list(chunks.chunks)
-    else:
-        selected = [chunk for chunk in chunks.chunks if chunk.chapter_id == chapter]
-        if not selected:
-            raise VerificationError(f"chapter {chapter!r} does not exist in the chunk manifest")
+def _select_chunks(
+    chunks: ChunkManifest,
+    chapters: tuple[str, ...] | None,
+) -> list[ChunkRecord]:
+    try:
+        chapter_ids = set(select_chapter_ids(chunks, chapters))
+    except ChapterSelectionError as error:
+        raise VerificationError(str(error)) from error
+    selected = [chunk for chunk in chunks.chunks if chunk.chapter_id in chapter_ids]
     if not selected:
         raise VerificationError("chunk manifest contains no chunks to verify")
     return selected
@@ -588,20 +622,21 @@ def _summary(
     manifest_sha256: str,
     report_sha256: str,
     *,
+    selected_records: list[VerificationRecord],
     transcribed_count: int,
 ) -> VerifySummary:
-    accepted = sum(record.status == ReviewStatus.ACCEPTED for record in manifest.records)
-    retryable = sum(record.status == ReviewStatus.RETRYABLE for record in manifest.records)
-    review = sum(record.status == ReviewStatus.REVIEW for record in manifest.records)
+    accepted = sum(record.status == ReviewStatus.ACCEPTED for record in selected_records)
+    retryable = sum(record.status == ReviewStatus.RETRYABLE for record in selected_records)
+    review = sum(record.status == ReviewStatus.REVIEW for record in selected_records)
     status: Literal["completed", "retryable", "review"] = (
         "retryable" if retryable else "review" if review else "completed"
     )
     return VerifySummary(
         status=status,
         book_id=manifest.book_id,
-        selected_count=len(manifest.records),
+        selected_count=len(selected_records),
         transcribed_count=transcribed_count,
-        reused_count=len(manifest.records) - transcribed_count,
+        reused_count=len(selected_records) - transcribed_count,
         accepted_count=accepted,
         retryable_count=retryable,
         review_count=review,

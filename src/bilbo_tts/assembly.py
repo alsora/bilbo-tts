@@ -17,6 +17,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from bilbo_tts.artifacts import ArtifactError, ArtifactStore
+from bilbo_tts.chapter_selection import ChapterSelectionError, select_chapter_ids
 from bilbo_tts.chunk_service import CHUNK_MANIFEST_PATH
 from bilbo_tts.ingest.service import DOCUMENT_PATH
 from bilbo_tts.models import (
@@ -75,7 +76,7 @@ def assemble_book(
     config_path: Path,
     project_root: Path,
     *,
-    chapter: str | None = None,
+    chapters: tuple[str, ...] | None = None,
     allow_unaccepted: bool = False,
     override_note: str | None = None,
     force: bool = False,
@@ -107,7 +108,8 @@ def assemble_book(
         generation_reference.sha256,
         verification,
     )
-    selected = _select_chunks(chunks, chapter)
+    selected = _select_chunks(chunks, chapters)
+    scope_chapter_ids = tuple(dict.fromkeys(chunk.chapter_id for chunk in selected))
     runner = command_runner or _run_command
     ffmpeg = _require_tool("ffmpeg")
     ffprobe = _require_tool("ffprobe")
@@ -128,7 +130,7 @@ def assemble_book(
             "chunks": chunk_reference.sha256,
             "generations": generation_reference.sha256,
             "verification": verification_reference.sha256,
-            "chapter": chapter,
+            "scope_chapter_ids": scope_chapter_ids,
             "metadata": context.config.metadata.model_dump(mode="json"),
             "assembly": context.config.assembly.model_dump(mode="json"),
             "cover_sha256": cover_sha256,
@@ -138,7 +140,7 @@ def assemble_book(
             "ffprobe_version": ffprobe_version,
         }
     )
-    output_path = _output_path(context.config.book_id, chapter)
+    output_path = _output_path(context.config.book_id, chapters)
     existing = (
         None
         if force
@@ -146,7 +148,7 @@ def assemble_book(
             store,
             output_path,
             assembly_input_sha256,
-            chapter,
+            scope_chapter_ids,
         )
     )
     if existing is not None:
@@ -279,7 +281,7 @@ def assemble_book(
     output_sha256 = _sha256_file(output_target)
     manifest = AssemblyManifest(
         book_id=context.config.book_id,
-        scope_chapter_id=chapter,
+        scope_chapter_ids=scope_chapter_ids,
         book_document_sha256=document_reference.sha256,
         chunk_manifest_sha256=chunk_reference.sha256,
         generation_manifest_sha256=generation_reference.sha256,
@@ -321,7 +323,7 @@ def render_assembly_report(manifest: AssemblyManifest) -> str:
     lines = [
         f"# Assembly report: {manifest.book_id}",
         "",
-        f"- Scope: {manifest.scope_chapter_id or 'full book'}",
+        f"- Scope: {', '.join(manifest.scope_chapter_ids)}",
         f"- Chunks: {len(manifest.inputs)}",
         f"- Chapters: {len(manifest.chapters)}",
         f"- Duration: {manifest.media.duration_ms / 1000:.3f} seconds",
@@ -369,13 +371,15 @@ def _validate_upstream(
         )
 
 
-def _select_chunks(manifest: ChunkManifest, chapter: str | None) -> list[ChunkRecord]:
-    chapter_ids = {chunk.chapter_id for chunk in manifest.chunks}
-    if chapter is not None and chapter not in chapter_ids:
-        raise AssemblyError(f"chapter {chapter!r} does not exist in the chunk manifest")
-    selected = [
-        chunk for chunk in manifest.chunks if chapter is None or chunk.chapter_id == chapter
-    ]
+def _select_chunks(
+    manifest: ChunkManifest,
+    chapters: tuple[str, ...] | None,
+) -> list[ChunkRecord]:
+    try:
+        chapter_ids = set(select_chapter_ids(manifest, chapters))
+    except ChapterSelectionError as error:
+        raise AssemblyError(str(error)) from error
+    selected = [chunk for chunk in manifest.chunks if chunk.chapter_id in chapter_ids]
     if not selected:
         raise AssemblyError("assembly selection contains no chunks")
     return selected
@@ -760,8 +764,13 @@ def _cover(book_dir: Path, relative_path: str | None) -> tuple[Path | None, str 
     return path, sha256_bytes(data)
 
 
-def _output_path(book_id: str, chapter: str | None) -> str:
-    suffix = f"-{chapter}" if chapter else ""
+def _output_path(book_id: str, chapters: tuple[str, ...] | None) -> str:
+    if chapters is None:
+        suffix = ""
+    elif len(chapters) == 1:
+        suffix = f"-{chapters[0]}"
+    else:
+        suffix = f"-{chapters[0]}-to-{chapters[-1]}"
     return f"media/{book_id}{suffix}.m4b"
 
 
@@ -769,7 +778,7 @@ def _load_reusable(
     store: ArtifactStore,
     output_path: str,
     assembly_input_sha256: str,
-    chapter: str | None,
+    scope_chapter_ids: tuple[str, ...],
 ) -> AssemblyManifest | None:
     try:
         manifest = store.read(ASSEMBLY_MANIFEST_PATH, AssemblyManifest)
@@ -777,7 +786,7 @@ def _load_reusable(
         return None
     if (
         manifest.assembly_input_sha256 != assembly_input_sha256
-        or manifest.scope_chapter_id != chapter
+        or manifest.scope_chapter_ids != scope_chapter_ids
         or manifest.output_path != output_path
     ):
         return None

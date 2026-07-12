@@ -10,6 +10,9 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
+from bilbo_tts.chapter_selection import ChapterSelectionError, select_chapter_ids
+from bilbo_tts.chunk_service import CHUNK_MANIFEST_PATH
+from bilbo_tts.models import ChunkManifest
 from bilbo_tts.qualification.candidates import CandidateConfigurationError
 from bilbo_tts.stages import load_stage_context
 from bilbo_tts.tts.factory import resolve_book_candidate
@@ -22,13 +25,20 @@ def run_verification_loop(
     config_path: Path,
     project_root: Path,
     *,
-    chapter: str | None = None,
+    chapters: tuple[str, ...] | None = None,
     command_runner: CommandRunner = subprocess.run,
     pixi_executable: Path | None = None,
 ) -> VerifySummary:
     """Alternate isolated ASR and TTS processes until verification settles."""
 
     context = load_stage_context(config_path, project_root)
+    chunks = context.workspace.artifacts.read(CHUNK_MANIFEST_PATH, ChunkManifest)
+    try:
+        scope_chapter_ids = select_chapter_ids(chunks, chapters)
+    except ChapterSelectionError as error:
+        raise VerificationError(str(error)) from error
+    if not scope_chapter_ids:
+        raise VerificationError("chunk manifest contains no chunks to verify")
     try:
         candidate = resolve_book_candidate(
             context.config.synthesis,
@@ -43,8 +53,9 @@ def run_verification_loop(
         "--project-root",
         str(context.workspace.project_root),
     ]
-    if chapter is not None:
-        common.extend(["--chapter", chapter])
+    if chapters is not None:
+        for chapter in scope_chapter_ids:
+            common.extend(["--chapter", chapter])
     maximum_passes = context.config.verification.max_auto_retries + 2
     for _ in range(maximum_passes):
         verify_command = [
@@ -77,8 +88,9 @@ def run_verification_loop(
             str(context.workspace.project_root),
             "--verification-retry",
         ]
-        if chapter is not None:
-            synthesis_command.extend(["--chapter", chapter])
+        if chapters is not None:
+            for chapter in scope_chapter_ids:
+                synthesis_command.extend(["--chapter", chapter])
         _run_json_command(command_runner, synthesis_command, "verification-driven synthesis")
     raise VerificationError(
         "verification retry loop exceeded its configured bound without settling"

@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import Field
 
 from bilbo_tts.artifacts import ArtifactError, ArtifactStore
+from bilbo_tts.chapter_selection import ChapterSelectionError, select_chapter_ids
 from bilbo_tts.chunk_service import CHUNK_MANIFEST_PATH
 from bilbo_tts.config import VoiceConfig
 from bilbo_tts.models import (
@@ -77,7 +78,7 @@ def synthesize_book(
     config_path: Path,
     project_root: Path,
     *,
-    chapter: str | None = None,
+    chapters: tuple[str, ...] | None = None,
     chunk_start: int | None = None,
     chunk_end: int | None = None,
     failed_only: bool = False,
@@ -94,6 +95,10 @@ def synthesize_book(
     chunks = store.read(CHUNK_MANIFEST_PATH, ChunkManifest)
     chunk_reference = store.reference(CHUNK_MANIFEST_PATH)
     _validate_upstream(context.config.book_id, normalized, normalized_reference.sha256, chunks)
+    try:
+        scope_chapter_ids = select_chapter_ids(chunks, chapters)
+    except ChapterSelectionError as error:
+        raise SynthesisError(str(error)) from error
 
     candidate = resolve_book_candidate(context.config.synthesis, context.workspace.project_root)
     identities = {
@@ -107,7 +112,7 @@ def synthesize_book(
     selected = _select_chunks(
         chunks,
         current,
-        chapter=chapter,
+        chapters=scope_chapter_ids,
         chunk_start=chunk_start,
         chunk_end=chunk_end,
         failed_only=failed_only,
@@ -269,7 +274,7 @@ def _select_chunks(
         tuple[GenerationRecord | None, GenerationFailure | None],
     ],
     *,
-    chapter: str | None,
+    chapters: tuple[str, ...],
     chunk_start: int | None,
     chunk_end: int | None,
     failed_only: bool,
@@ -288,13 +293,10 @@ def _select_chunks(
             raise SynthesisError(f"chunk end {chunk_end} exceeds maximum sequence {maximum}")
     elif chunk_start is not None or chunk_end is not None:
         raise SynthesisError("cannot select a chunk range from an empty manifest")
-    chapter_ids = {chunk.chapter_id for chunk in manifest.chunks}
-    if chapter is not None and chapter not in chapter_ids:
-        raise SynthesisError(f"chapter {chapter!r} does not exist in the chunk manifest")
-
+    chapter_ids = set(chapters)
     selected = []
     for chunk in manifest.chunks:
-        if chapter is not None and chunk.chapter_id != chapter:
+        if chunk.chapter_id not in chapter_ids:
             continue
         if chunk_start is not None and chunk.sequence < chunk_start:
             continue
