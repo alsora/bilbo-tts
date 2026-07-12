@@ -41,3 +41,19 @@ entries:
     case_sensitive: false
     word_boundaries: true
     notes: espeak-ng voices the compound-internal s and closes the stressed e; the hyphen restores voiceless s and open e. Catches literals and currency, date, percentage, and ratio expansions, but not generic integer expansion, which runs after lexicons.
+  - entry_id: stress-desideri
+    mode: literal
+    pattern: desideri
+    spoken: desidèri
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng uses the verb stress desìderi; this book uses the noun desidèri. A second-person verb occurrence would be respelled wrongly, so review if the text ever addresses the reader with this form.
+  - entry_id: vowel-trovano
+    mode: literal
+    pattern: trovano
+    spoken: tròvano
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: espeak-ng closes the stressed o; standard Italian uses the open o of trovare.
