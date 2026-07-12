@@ -255,6 +255,41 @@ def test_failures_are_bounded_persisted_and_failed_only_recovers(tmp_path: Path)
     assert load_manifest(store).failures == ()
 
 
+def test_retries_vary_the_seed_and_recover_deterministic_failures(tmp_path: Path) -> None:
+    root, config, store = make_project(tmp_path, texts=("Testo.",), max_retries=2)
+    attempt_seeds: list[int] = []
+
+    class SeedSensitiveEngine:
+        def __init__(self, delegate: TtsEngine, failing_seed: int) -> None:
+            self.delegate = delegate
+            self.failing_seed = failing_seed
+
+        @property
+        def capabilities(self) -> TtsCapabilities:
+            return self.delegate.capabilities
+
+        def health(self) -> TtsHealth:
+            return self.delegate.health()
+
+        def synthesize(self, request: TtsRequest) -> TtsResult:
+            attempt_seeds.append(request.settings.seed)
+            if request.settings.seed == self.failing_seed:
+                raise RuntimeError("deterministic failure for this seed")
+            return self.delegate.synthesize(request)
+
+    def seed_sensitive_factory(candidate: TtsCandidateConfig, path: Path) -> TtsEngine:
+        return SeedSensitiveEngine(fake_factory(candidate, path), failing_seed=7)
+
+    summary = synthesize_book(config, root, engine_factory=seed_sensitive_factory)
+    record = load_manifest(store).records[0]
+
+    assert attempt_seeds == [7, 8]
+    assert summary.generated_count == 1
+    assert summary.failed_count == 0
+    assert record.retry_number == 1
+    assert record.identity.settings.seed == 7
+
+
 def test_chapter_range_and_force_filters_intersect(tmp_path: Path) -> None:
     root, config, store = make_project(
         tmp_path,

@@ -325,7 +325,7 @@ def _generate_chunk(
             request = TtsRequest(
                 spoken_text=chunk.spoken_text,
                 voice=voice,
-                settings=settings,
+                settings=_attempt_settings(settings, retry_number),
             )
             result = engine.synthesize(request)
             validate_result(engine.capabilities, request, result)
@@ -364,6 +364,20 @@ def _generate_chunk(
     )
     store.write(failure_path, failure)
     return failure
+
+
+def _attempt_settings(settings: SynthesisSettings, retry_number: int) -> SynthesisSettings:
+    """Return the configured settings with a deterministically varied retry seed.
+
+    Seeded generation is deterministic, so retrying with the configured seed
+    would reproduce the same failure byte for byte. The first attempt uses the
+    configured seed unchanged to keep existing outputs reproducible, and each
+    retry offsets it; the sidecar retry number makes the attempt seed derivable.
+    """
+
+    if retry_number == 0:
+        return settings
+    return settings.model_copy(update={"seed": (settings.seed + retry_number) % 2**32})
 
 
 def _read_current_state(

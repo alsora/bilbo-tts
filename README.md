@@ -446,6 +446,7 @@ Automatic fallback is intentionally absent; switch the book configuration to the
 
 If synthesis is interrupted, rerun the same command.
 Completed sidecar/WAV pairs remain valid, while missing or incomplete pairs are regenerated.
+Each retry deterministically offsets the configured seed by the retry number, because seeded generation would otherwise reproduce the same failure; the recorded retry number keeps every attempt reproducible.
 After `max_retries + 1` failed attempts, the stage writes a structured failure sidecar, continues other selected chunks, emits a partial or failed summary, and exits nonzero.
 Correct the reported problem and rerun with `--failed`.
 Do not edit generated sidecars or manifests by hand.
