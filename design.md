@@ -117,7 +117,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 
 ## Model and runtime strategy for a 16 GB Apple Silicon Mac
 
-- The interim production default is Kokoro-82M with the `kokoro-nicola-s120` candidate because Chatterbox synthesizes near real-time factor 4 to 5, which makes full-book renders impractical on the target machine; the evidence lives in [`performance.md`](performance.md).
+- The interim production default is Kokoro-82M with the `kokoro-nicola-s120` candidate because Chatterbox throughput varies with excerpt length and thermal state but remains impractical for full-book iteration on the target machine; the evidence and measurement limits live in [`performance.md`](performance.md).
 - Chatterbox Multilingual V3 remains the preferred voice and the long-term target; the performance investigation continues in parallel, and returning to Chatterbox as default requires only a book's model config path change once its wall time is acceptable.
 - The qualified Chatterbox configuration uses the official PyTorch MPS implementation because no maintained V3 MLX port exists.
 - Pin the Chatterbox code to `65b18437192794391a0308a8f705b1e33e633948` and `ResembleAI/chatterbox` weights to `5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18`.

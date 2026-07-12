@@ -467,10 +467,11 @@ Three committed experimental Chatterbox variants exist for speed evaluation agai
 `chatterbox-turbo` samples without classifier-free guidance through the upstream batch-1 turbo path.
 The dtype and sampler experiments require the built-in voice.
 None of them changes the pinned production default until its adoption is recorded in `design.md`.
-The measured evidence behind these variants, the thermal-throttling measurement methodology, and the `scripts/ab_timing.py` comparison tool are documented in [`performance.md`](performance.md).
+The evidence limitations, counterbalanced thermal-session methodology, persisted JSONL format, summary statistics, and separate profiling procedure are documented in [`performance.md`](performance.md).
+Run candidate timing through `scripts/ab_timing.py compare` with an explicit `ABBA` or `BAAB` order, then use its `summarize` command only after both starting orders have completed in independent cool sessions.
 The default development environment can run the deterministic fake candidate without importing or downloading a model.
-Human review strongly preferred the Chatterbox Multilingual V3 voice, but its real-time factor of 4 to 5 makes full-book renders impractical, as measured in [`performance.md`](performance.md).
-The interim production default is therefore the Kokoro `kokoro-nicola-s120` candidate: voice `im_nicola` at speed 1.2, roughly 30 times faster than Chatterbox.
+Human review strongly preferred the Chatterbox Multilingual V3 voice, but its observed throughput varies materially with excerpt length and thermal state and remains impractical for full-book iteration.
+The interim production default is therefore the much faster Kokoro `kokoro-nicola-s120` candidate: voice `im_nicola` at speed 1.2.
 Chatterbox remains the long-term target while the performance investigation continues in parallel.
 Both engines retain accent defects on some Italian words, which should be addressed only through reviewed model-specific pronunciation overrides.
 The exact revisions, settings, runtime limits, and selection policy are recorded in [`design.md`](design.md#model-and-runtime-strategy-for-a-16-gb-apple-silicon-mac).
