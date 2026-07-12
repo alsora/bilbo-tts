@@ -2,26 +2,23 @@
 
 ## Current state
 
-- The active branch is `milestone/c5-resumable-synthesis` with a clean working tree; the branch is not yet pushed.
-- The listening-review fixes are committed: the reviewed `desidèri` and `tròvano` lexicon entries and the opt-in `chunking.split_at_colons` feature.
-- Colon splitting exists because Kokoro renders a colon pause near 80 ms regardless of punctuation choice, so the following clause now receives the explicit assembly sentence pause.
-- Stale superseded audio pairs were purged from the private workspace, leaving exactly one WAV and sidecar per chunk directory.
-- The timing tool now runs counterbalanced ABBA or BAAB sessions with one fresh subprocess per pass, persists versioned JSONL evidence and metadata, summarizes only complete paired thermal sessions, and offers a separate cProfile and MPS-signpost mode.
-- The performance methodology now distinguishes benchmark evidence from perturbed profiling, uses same-text wall time as the primary result, treats RTF separately, alternates starting order across cool sessions, and records the limitations of the historical measurements.
-- `book.yaml` selects one candidate file through `synthesis.model_config_path` instead of duplicating engine, revision, voice, and settings; the candidate owns the complete pinned identity.
-- The interim production default is the Kokoro `kokoro-nicola-s120` candidate (voice `im_nicola`, speed 1.2) because Chatterbox throughput varies with excerpt length and thermal state but remains impractical for full-book iteration; [`performance.md`](performance.md) owns the evidence and its limitations.
-- Chatterbox remains the preferred voice and long-term target while its performance investigation continues in parallel.
-- The private target book under ignored `work/c2-target-project/` uses the shared `config/lexicons/kokoro-it.yaml` overlay and the interim Kokoro candidate.
+- The active branch is `milestone/c6-calibrated-verification`.
+- Milestone 6 implementation is committed as `4daacde` (`feat: add calibrated round-trip verification`), with this handoff committed separately for the final branch push.
+- The reusable pinned MLX-Whisper adapter, deterministic alignment and audio heuristics, process-isolated retry coordinator, generation-bound manual decisions, manifests, and readable reports are implemented.
+- The public `bilbo verify` command runs ASR and TTS retries in non-overlapping Pixi child processes.
+- The private target book under ignored `work/c2-target-project/` has an explicit calibrated `verification` section and generated verification evidence.
+- The regenerated `chapter-0002` chunks were listening-checked and confirmed correct before C6 calibration.
+- Chatterbox remains the preferred long-term voice, but its benchmark and improvement work is explicitly deferred until checkpoint C8 is complete.
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, and all 264 ordinary tests with 3 expected hardware skips and above 92 percent coverage.
-- Chapter `chapter-0002` regenerated after the listening fixes: 156 chunks after colon splitting, 79 unchanged chunks reused from cache, 77 generated, 0 failures.
-- A rerun after the stale-audio purge remains a no-op: 0 generated, 156 skipped, byte-identical generation manifest.
-- Interruption recovery, corrupt-output detection, and lexicon-scoped regeneration are covered by committed tests.
-- The earlier partial Chatterbox audio is preserved at `work/c2-target-project/work/tts-investimento/audio-chatterbox-incomplete/`.
-- Human listening accepted the chapter overall and flagged `desideri`, `trovano`, and short colon pauses; the seven reviewed Kokoro corrections now apply 48 times across the private book.
-- ASR scoring of `kokoro-nicola-s120` measured weighted WER 0.183288 and CER 0.186090 with regressions limited to English loanwords.
+- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 297 ordinary tests, 3 expected hardware skips, and 91.84 percent coverage.
+- The opt-in MLX-Whisper hardware smoke test passes in the `asr` environment with unrestricted Metal access.
+- The existing 24-excerpt Kokoro regression evidence calibrates WER at `0.70` and CER at `0.85` so correct spoken numbers rendered as digits do not become false positives.
+- Deliberate truncation, repetition, silence, clipping, speed changes, retry exhaustion, process ordering, stale decisions, and no-op reruns are covered by committed tests.
+- The calibrated `chapter-0002` pass classified all 156 listening-approved chunks as `accepted`, with 0 `retryable` and 0 `review`.
+- The public process-isolated rerun reused all 156 attempt records, performed 0 transcriptions, and reproduced manifest SHA-256 `dd70437cf9d530fc25a8dfe34c80da6e63b0eb6245d9a859fb32eadc9cd72e70` and report SHA-256 `460b8e20fecaae4f427fd81c9d6b2fa9d4800dd541b341de12077caba309bbb3`.
+- The first calibration pass exposed and corrected false positives from one-word heading speed and non-adjacent word frequency; the final repetition heuristic detects only adjacent repeated phrases.
 
 ## Durable references
 
@@ -32,6 +29,6 @@
 
 ## Next action
 
-- Spot-check the regenerated chapter `chapter-0002` chunks for the corrected words, remembering that colon pauses become audible only in assembled audio.
-- When audio generation is authorized for benchmarking, collect one cool `ABBA` and one independent cool `BAAB` session into the same evidence file, then summarize the complete paired sessions.
-- Push the reviewed branch and start Milestone 6, the round-trip ASR verification loop, against the Kokoro-generated chunks.
+- Review and explicitly accept the calibrated threshold behavior to close checkpoint C6.
+- After C6 approval, start Milestone 7 assembly from the 156 accepted Kokoro chunks.
+- Keep Chatterbox benchmark and improvement work deferred until after checkpoint C8.
