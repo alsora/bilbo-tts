@@ -2,6 +2,8 @@
 
 ## Current state
 
+- The working tree on `main` contains an intentional, uncommitted documentation restructuring: `design.md`, `implementation.md`, and `performance.md` moved into `docs/`, the README reference material split into eight new `docs/` guides, and README rewritten as a short top-level guide.
+
 - The active branch is `milestone/c8-chapters-2-6`.
 - Milestone 8 code and documentation are implemented through commit `77c2719`.
 - Repeatable ordered chapter selection, scoped verification merging, multi-chapter assembly, `bilbo run`, text-only qualification, model-license provenance, and atomic content-addressed build bundles are implemented.
@@ -19,7 +21,7 @@
 - The built-in lexicon now pronounces `INPS` as one word while retaining letter-by-letter pronunciation for acronyms such as `ETF`.
 - Listening-approved Kokoro overrides now cover `meglio`, `go-kart`, `duemiladiciannove`, `impegnandosi`, and `centoventisette`.
 - `interesse` is not globally overridden because ordinary occurrences such as `block-000044.s0000.p0000` sound correct; the defect in `block-000498.s0004.p0000` remains context-specific.
-- The two known chapter-0002 Kokoro pause defects remain explicitly accepted limitations as recorded in [`performance.md`](performance.md).
+- The two known chapter-0002 Kokoro pause defects remain explicitly accepted limitations as recorded in [`performance.md`](docs/performance.md).
 - Chatterbox benchmark and improvement work remains deferred until C8 is accepted.
 
 ## Verification
@@ -43,9 +45,9 @@
 
 ## Durable references
 
-- Architecture and stable policy are owned by [`design.md`](design.md).
-- Performance evidence and measurement methodology are owned by [`performance.md`](performance.md).
-- Milestones and checkpoint criteria are owned by [`implementation.md`](implementation.md).
+- Architecture and stable policy are owned by [`design.md`](docs/design.md).
+- Performance evidence and measurement methodology are owned by [`performance.md`](docs/performance.md).
+- Milestones and checkpoint criteria are owned by [`implementation.md`](docs/implementation.md).
 - Repository working conventions are owned by [`AGENTS.md`](AGENTS.md).
 
 ## Next action

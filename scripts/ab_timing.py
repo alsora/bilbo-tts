@@ -9,7 +9,7 @@ name. ``summarize`` reports paired same-text wall-time and RTF changes.
 Use ``profile`` separately when collecting Python and MPS traces: profiling
 changes execution timing and must not be mixed with benchmark evidence.
 
-See performance.md for the complete measurement procedure.
+See docs/performance.md for the complete measurement procedure.
 """
 
 from __future__ import annotations

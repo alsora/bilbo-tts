@@ -30,4 +30,4 @@ inference_parameters:
 notes:
   - Experimental variant of the pinned chatterbox default for speed evaluation.
   - Skips the Perth neural watermark applied to every generated chunk.
-  - Adopting this permanently is a deliberate policy decision to record in design.md.
+  - Adopting this permanently is a deliberate policy decision to record in docs/design.md.

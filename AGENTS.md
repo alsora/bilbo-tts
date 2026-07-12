@@ -5,8 +5,8 @@ These guidelines apply to every change in this repository.
 References:
  - [Current state of the project](HANDOFF.md)
  - [How to run](README.md)
- - [Project design](design.md)
- - [Implementation milestones](implementation.md)
+ - [Project design](docs/design.md)
+ - [Implementation milestones](docs/implementation.md)
 
 ## Coding practice
 
@@ -17,7 +17,7 @@ References:
 - Remove obsolete paths when replacing behavior instead of leaving compatibility code without a demonstrated need.
 - Keep functions and modules focused on one responsibility.
 - Validate inputs and invariants at boundaries, and report failures with actionable errors.
-- Preserve the deterministic, idempotent, and auditable behavior defined in [`design.md`](design.md).
+- Preserve the deterministic, idempotent, and auditable behavior defined in [`design.md`](docs/design.md).
 - Add comments when they explain intent, constraints, trade-offs, or non-obvious behavior.
 - Do not add comments that merely restate what the code already says.
 
@@ -37,14 +37,14 @@ References:
 - Prefer realistic fakes at external boundaries over mocks of internal implementation details.
 - Keep tests deterministic, isolated, readable, and fast enough for their intended verification level.
 - Run the relevant focused tests while developing and `pixi run check` before considering a change complete.
-- Follow the milestone-specific verification gates in [`implementation.md`](implementation.md).
+- Follow the milestone-specific verification gates in [`implementation.md`](docs/implementation.md).
 
 ## Documentation
 
 - Keep documentation synchronized with behavior and configuration in the same change.
 - Write documentation with one sentence per line to make diffs clear and reviews precise.
-- Keep architectural decisions and stable policies in [`design.md`](design.md).
-- Keep delivery order, verification stages, and checkpoint criteria in [`implementation.md`](implementation.md).
+- Keep architectural decisions and stable policies in [`design.md`](docs/design.md).
+- Keep delivery order, verification stages, and checkpoint criteria in [`implementation.md`](docs/implementation.md).
 - Link to the owning document instead of copying information that could become stale.
 - Document user-visible commands, configuration, failure recovery, and non-obvious operational constraints.
 
@@ -77,7 +77,7 @@ References:
 
 ## Milestone branches and pushing
 
-- A user request to proceed with a milestone in [`implementation.md`](implementation.md) explicitly authorizes the agent to create a branch, implement the milestone, create all necessary commits, and push that branch to `origin`.
+- A user request to proceed with a milestone in [`implementation.md`](docs/implementation.md) explicitly authorizes the agent to create a branch, implement the milestone, create all necessary commits, and push that branch to `origin`.
 - Create a dedicated branch named `milestone/cN-short-description` from the intended base branch.
 - Never commit directly to or push directly to `main` as part of automatic milestone execution.
 - Never force-push, rewrite published commits, merge the branch, or create a pull request unless the user explicitly asks.
