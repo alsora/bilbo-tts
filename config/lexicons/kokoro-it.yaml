@@ -57,3 +57,11 @@ entries:
     case_sensitive: false
     word_boundaries: true
     notes: espeak-ng closes the stressed o; standard Italian uses the open o of trovare.
+  - entry_id: consonant-zero
+    mode: literal
+    pattern: zero
+    spoken: dzzèro
+    priority: 50
+    case_sensitive: false
+    word_boundaries: true
+    notes: Kokoro weakens its ordinary zero onset toward s and renders a text-only d-plus-affricate override too strongly; this marker receives the reviewed dz phoneme sequence in the Kokoro adapter.

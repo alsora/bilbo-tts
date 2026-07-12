@@ -199,6 +199,9 @@ def test_shared_scope_loads_from_repository_lexicon_directory(tmp_path: Path) ->
     spoken, transformations, _ = apply_rules("La duration conta.", loaded)
     assert spoken == "La durèscion conta."
     assert transformations[0].rule_id == "lexicon.kokoro-it.loanword-duration"
+    spoken, transformations, _ = apply_rules("Zero virgola venticinque.", loaded)
+    assert spoken == "dzzèro virgola venticinque."
+    assert transformations[0].rule_id == "lexicon.kokoro-it.consonant-zero"
 
 
 def test_shared_scope_rejects_paths_escaping_the_lexicon_directory(tmp_path: Path) -> None:

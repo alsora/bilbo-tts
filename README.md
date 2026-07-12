@@ -674,6 +674,7 @@ An unchanged rerun reuses every matching attempt without loading Whisper.
 `accepted` chunks need no action.
 `retryable` chunks are regenerated automatically while the retry budget remains.
 `review` chunks require listening and an explicit decision.
+Human listening may also mark an automatically accepted chunk for regeneration when ASR misses a pronunciation or acoustic defect.
 Record a reviewed false positive with:
 
 ```shell

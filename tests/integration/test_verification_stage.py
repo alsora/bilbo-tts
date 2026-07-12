@@ -151,3 +151,32 @@ def test_manual_decision_is_bound_to_generation_and_retry_becomes_stale(
     assert regenerated.retry_number == 1
     with pytest.raises(StaleArtifactError):
         store.read(VERIFICATION_MANIFEST_PATH, VerificationManifest)
+
+
+def test_human_can_regenerate_an_automatically_accepted_chunk(
+    run_book_fixture: object,
+) -> None:
+    config_path, project_root, store = _prepare_generated_fixture(run_book_fixture)
+    chunks = store.read(CHUNK_MANIFEST_PATH, ChunkManifest)
+    summary = verify_book_pass(
+        config_path,
+        project_root,
+        transcriber_factory=lambda _config: _Transcriber(_transcripts(store)),
+    )
+    assert summary.status == "completed"
+    chunk_id = chunks.chunks[0].chunk_id
+
+    decision = record_review_decision(
+        config_path,
+        project_root,
+        chunk_id=chunk_id,
+        action="regenerate",
+        reviewer="test-reviewer",
+        note="Human listening found an artifact that ASR did not detect.",
+    )
+
+    assert decision.status == "retryable"
+    current = store.read(VERIFICATION_MANIFEST_PATH, VerificationManifest)
+    reviewed = next(record for record in current.records if record.chunk_id == chunk_id)
+    assert reviewed.status == ReviewStatus.RETRYABLE
+    assert reviewed.reason_codes == ("manual-regenerate",)

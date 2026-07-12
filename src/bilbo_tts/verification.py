@@ -211,10 +211,13 @@ def record_review_decision(
         current = records[chunk_id]
     except KeyError as error:
         raise VerificationError(f"chunk {chunk_id!r} is not in the current review queue") from error
-    if current.status != ReviewStatus.REVIEW:
+    if action == "accept" and current.status != ReviewStatus.REVIEW:
         raise VerificationError(
-            f"chunk {chunk_id!r} has status {current.status.value!r}, not 'review'"
+            f"chunk {chunk_id!r} has status {current.status.value!r}; "
+            "only review chunks can be manually accepted"
         )
+    if action == "regenerate" and current.status == ReviewStatus.RETRYABLE:
+        raise VerificationError(f"chunk {chunk_id!r} is already queued for regeneration")
     generation_by_chunk = {record.chunk_id: record for record in generations.records}
     generation = generation_by_chunk.get(chunk_id)
     if generation is None or canonical_sha256(generation) != current.generation_sha256:
