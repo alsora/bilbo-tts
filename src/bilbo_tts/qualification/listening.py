@@ -28,17 +28,17 @@ class BlindClip(ContractModel):
     clip_id: Identifier
     audio_path: NonEmptyText
     excerpt_id: Identifier
-    engine: Identifier
+    candidate_name: Identifier
     wav_sha256: Sha256
 
 
 class BlindListeningMapping(ContractModel):
-    """Private mapping from opaque clips to source engines."""
+    """Private mapping from opaque clips to source candidates."""
 
     schema_version: Literal["tts-listening-mapping/v1"] = "tts-listening-mapping/v1"
     seed: int
     corpus_sha256: Sha256
-    engines: tuple[Identifier, ...]
+    candidate_names: tuple[Identifier, ...]
     clips: tuple[BlindClip, ...]
 
     @model_validator(mode="after")
@@ -59,7 +59,7 @@ class ListeningPackageSummary(ContractModel):
     status: Literal["completed"] = "completed"
     seed: int
     corpus_sha256: Sha256
-    engine_count: int = Field(ge=2)
+    candidate_count: int = Field(ge=2)
     excerpt_count: int = Field(gt=0)
     clip_count: int = Field(gt=0)
     mapping_path: NonEmptyText
@@ -79,7 +79,7 @@ def prepare_listening_package(
         raise QualificationError("blind listening requires at least two qualification results")
     loaded = sorted(
         ((path.expanduser().resolve(), load_qualification_result(path)) for path in result_paths),
-        key=lambda item: item[1].engine,
+        key=lambda item: item[1].candidate_name,
     )
     _validate_compatible_results(tuple(result for _, result in loaded))
     store = ArtifactStore(output_root)
@@ -89,11 +89,11 @@ def prepare_listening_package(
     for excerpt_index, _reference_sample in enumerate(reference.samples, start=1):
         shuffled = list(loaded)
         rng.shuffle(shuffled)
-        for engine_index, (result_path, result) in enumerate(shuffled):
+        for candidate_index, (result_path, result) in enumerate(shuffled):
             sample = result.samples[excerpt_index - 1]
             if sample.wav_path is None or sample.wav_sha256 is None:
                 raise QualificationError(
-                    f"{result.engine} excerpt {sample.excerpt_id} has no completed WAV"
+                    f"{result.candidate_name} excerpt {sample.excerpt_id} has no completed WAV"
                 )
             source_store = ArtifactStore(result_path.parent)
             source_path = source_store.resolve(sample.wav_path)
@@ -106,14 +106,14 @@ def prepare_listening_package(
             actual_sha256 = sha256_bytes(wav_data)
             if actual_sha256 != sample.wav_sha256:
                 raise QualificationError(
-                    f"qualification WAV checksum mismatch for {result.engine} "
+                    f"qualification WAV checksum mismatch for {result.candidate_name} "
                     f"excerpt {sample.excerpt_id}"
                 )
             validate_wav_bytes(
                 wav_data,
                 expected_sample_rate_hz=result.candidate.settings.sample_rate_hz,
             )
-            clip_id = f"clip-{excerpt_index:03d}-{engine_index + 1:02d}"
+            clip_id = f"clip-{excerpt_index:03d}-{candidate_index + 1:02d}"
             audio_path = f"audio/{clip_id}.wav"
             output_reference = store.write_bytes(audio_path, wav_data)
             clips.append(
@@ -121,14 +121,14 @@ def prepare_listening_package(
                     clip_id=clip_id,
                     audio_path=output_reference.path,
                     excerpt_id=sample.excerpt_id,
-                    engine=result.engine,
+                    candidate_name=result.candidate_name,
                     wav_sha256=output_reference.sha256,
                 )
             )
     mapping = BlindListeningMapping(
         seed=seed,
         corpus_sha256=reference.corpus_sha256,
-        engines=tuple(result.engine for _, result in loaded),
+        candidate_names=tuple(result.candidate_name for _, result in loaded),
         clips=tuple(clips),
     )
     mapping_reference = store.write_bytes(
@@ -142,7 +142,7 @@ def prepare_listening_package(
     return ListeningPackageSummary(
         seed=seed,
         corpus_sha256=mapping.corpus_sha256,
-        engine_count=len(mapping.engines),
+        candidate_count=len(mapping.candidate_names),
         excerpt_count=len(reference.samples),
         clip_count=len(mapping.clips),
         mapping_path=mapping_reference.path,
@@ -152,25 +152,25 @@ def prepare_listening_package(
     )
 
 
-def prepare_listening_for_engines(
-    engines: tuple[str, ...],
+def prepare_listening_for_candidates(
+    candidate_names: tuple[str, ...],
     project_root: Path,
     seed: int,
 ) -> ListeningPackageSummary:
-    """Resolve engine result files below the qualification workspace."""
+    """Resolve candidate result files below the qualification workspace."""
 
     root = project_root.expanduser().resolve()
     result_paths = tuple(
-        root / "work" / "tts-qualification" / engine / "result.json" for engine in engines
+        root / "work" / "tts-qualification" / name / "result.json" for name in candidate_names
     )
     output_root = root / "work" / "tts-qualification" / "listening"
     return prepare_listening_package(result_paths, output_root, seed)
 
 
 def render_rating_sheet(mapping: BlindListeningMapping) -> str:
-    """Render rating prompts without engine or excerpt identities."""
+    """Render rating prompts without candidate or excerpt identities."""
 
-    clips_per_excerpt = len(mapping.engines)
+    clips_per_excerpt = len(mapping.candidate_names)
     lines = [
         "# Blind TTS listening rating sheet",
         "",
@@ -200,9 +200,9 @@ def render_rating_sheet(mapping: BlindListeningMapping) -> str:
 
 
 def _validate_compatible_results(results: tuple[QualificationResult, ...]) -> None:
-    engines = [result.engine for result in results]
-    if len(engines) != len(set(engines)):
-        raise QualificationError("qualification results must use distinct engines")
+    names = [result.candidate_name for result in results]
+    if len(names) != len(set(names)):
+        raise QualificationError("qualification results must use distinct candidate names")
     reference = results[0]
     if not reference.samples:
         raise QualificationError("qualification results must contain a complete corpus")
@@ -210,7 +210,7 @@ def _validate_compatible_results(results: tuple[QualificationResult, ...]) -> No
     for result in results:
         if result.status != "completed":
             raise QualificationError(
-                f"qualification result for {result.engine} is not complete: {result.status}"
+                f"qualification result for {result.candidate_name} is not complete: {result.status}"
             )
         if result.corpus_sha256 != reference.corpus_sha256:
             raise QualificationError("qualification results use different corpus checksums")

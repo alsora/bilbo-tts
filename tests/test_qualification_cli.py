@@ -20,6 +20,7 @@ def qualification_summary(
     failure_count = 0 if status == "completed" else 1
     return TtsQualificationSummary(
         status=status,
+        candidate_name="fake",
         engine="fake",
         corpus_sha256="a" * 64,
         sample_count=24,
@@ -80,6 +81,7 @@ def asr_summary(
     failure_count = 0 if status == "completed" else 24 if status == "failed" else 1
     return AsrQualificationSummary(
         status=status,
+        candidate_name="kokoro",
         engine="kokoro",
         source_tts_result_sha256="a" * 64,
         sample_count=24,
@@ -135,7 +137,7 @@ def test_prepare_listening_cli_passes_engines_seed_and_root(
     summary = ListeningPackageSummary(
         seed=123,
         corpus_sha256="a" * 64,
-        engine_count=2,
+        candidate_count=2,
         excerpt_count=24,
         clip_count=48,
         mapping_path="mapping.json",
@@ -145,11 +147,11 @@ def test_prepare_listening_cli_passes_engines_seed_and_root(
     )
     received: list[object] = []
 
-    def prepare(engines: tuple[str, ...], root: object, seed: int) -> ListeningPackageSummary:
-        received.extend((engines, root, seed))
+    def prepare(candidates: tuple[str, ...], root: object, seed: int) -> ListeningPackageSummary:
+        received.extend((candidates, root, seed))
         return summary
 
-    monkeypatch.setattr(cli, "prepare_listening_for_engines", prepare)
+    monkeypatch.setattr(cli, "prepare_listening_for_candidates", prepare)
     result = runner.invoke(
         cli.app,
         [
@@ -171,10 +173,10 @@ def test_prepare_listening_cli_passes_engines_seed_and_root(
 
 
 def test_prepare_listening_cli_reports_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fail(_engines: object, _root: object, _seed: object) -> None:
+    def fail(_candidates: object, _root: object, _seed: object) -> None:
         raise QualificationError("two results are required")
 
-    monkeypatch.setattr(cli, "prepare_listening_for_engines", fail)
+    monkeypatch.setattr(cli, "prepare_listening_for_candidates", fail)
     result = runner.invoke(cli.app, ["prepare-tts-listening", "fake"])
 
     assert result.exit_code == 1

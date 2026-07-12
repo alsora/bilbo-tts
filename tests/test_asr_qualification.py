@@ -28,9 +28,12 @@ from bilbo_tts.tts import FakeTtsEngine
 ROOT = Path(__file__).parents[1]
 
 
-def _prepared_project(tmp_path: Path) -> tuple[QualificationCorpus, Path]:
+def _prepared_project(
+    tmp_path: Path,
+    candidate_name: str = "fake",
+) -> tuple[QualificationCorpus, Path]:
     config_root = tmp_path / "config" / "qualification"
-    config_root.mkdir(parents=True)
+    config_root.mkdir(parents=True, exist_ok=True)
     shutil.copy(ROOT / "config" / "qualification" / "corpus.yaml", config_root)
     shutil.copy(ROOT / "config" / "qualification" / "asr.yaml", config_root)
     corpus = load_corpus(default_corpus_path(tmp_path))
@@ -40,8 +43,8 @@ def _prepared_project(tmp_path: Path) -> tuple[QualificationCorpus, Path]:
         sample_rate_hz=candidate.settings.sample_rate_hz,
         voice_id=candidate.voice.voice_id,
     )
-    run_qualification(engine, candidate, corpus, tmp_path)
-    return corpus, tmp_path / "work" / "tts-qualification" / "fake" / "result.json"
+    run_qualification(engine, candidate, corpus, tmp_path, candidate_name=candidate_name)
+    return corpus, tmp_path / "work" / "tts-qualification" / candidate_name / "result.json"
 
 
 def test_scorer_resolves_pin_once_transcribes_full_corpus_sequentially_and_reports(
@@ -109,6 +112,41 @@ def test_scorer_resolves_pin_once_transcribes_full_corpus_sequentially_and_repor
     report = report_bytes.decode("utf-8")
     assert "prose-01" in report
     assert "prose-02" not in report
+
+
+def test_scorer_accepts_named_variants_and_rejects_mismatched_directories(
+    tmp_path: Path,
+) -> None:
+    corpus, variant_result_path = _prepared_project(tmp_path, candidate_name="fake-fast")
+    excerpts = {excerpt.excerpt_id: excerpt for excerpt in corpus.excerpts}
+
+    def transcribe(path: str, **_kwargs: object) -> object:
+        return {"text": excerpts[Path(path).stem].spoken_text}
+
+    summary = score_tts_asr(
+        "fake-fast",
+        tmp_path,
+        dependencies=AsrDependencies(lambda **_kwargs: "/snapshot", transcribe),
+    )
+    output = tmp_path / "work" / "tts-qualification" / "asr" / "fake-fast"
+    result = AsrQualificationResult.model_validate(
+        json.loads((output / summary.result_path).read_bytes())
+    )
+
+    assert summary.status == "completed"
+    assert summary.candidate_name == "fake-fast"
+    assert summary.engine == "fake"
+    assert result.candidate_name == "fake-fast"
+    assert result.by_engine["fake"] == result.overall
+
+    misplaced = tmp_path / "work" / "tts-qualification" / "fake-other"
+    shutil.copytree(variant_result_path.parent, misplaced)
+    with pytest.raises(QualificationError, match="does not match requested"):
+        score_tts_asr(
+            "fake-other",
+            tmp_path,
+            dependencies=AsrDependencies(lambda **_kwargs: "/snapshot", transcribe),
+        )
 
 
 def test_scorer_records_partial_failure_and_continues_sequentially(tmp_path: Path) -> None:

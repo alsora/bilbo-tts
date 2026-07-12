@@ -136,10 +136,11 @@ class AsrAggregate(ContractModel):
 
 
 class AsrQualificationResult(ContractModel):
-    """Strict persistent evidence for one TTS engine's ASR qualification."""
+    """Strict persistent evidence for one TTS candidate's ASR qualification."""
 
     schema_version: Literal["asr-qualification-result/v1"] = "asr-qualification-result/v1"
     status: Literal["completed", "partial", "failed"]
+    candidate_name: Identifier
     engine: Identifier
     source_tts_result_sha256: Sha256
     corpus_sha256: Sha256
@@ -190,6 +191,7 @@ class AsrQualificationSummary(ContractModel):
 
     schema_version: Literal["asr-qualification-summary/v1"] = "asr-qualification-summary/v1"
     status: Literal["completed", "partial", "failed"]
+    candidate_name: Identifier
     engine: Identifier
     source_tts_result_sha256: Sha256
     sample_count: int = Field(ge=0)
@@ -230,7 +232,7 @@ class _ValidatedInput:
 
 
 def score_tts_asr(
-    engine_name: str,
+    candidate_name: str,
     project_root: Path,
     *,
     dependencies: AsrDependencies | None = None,
@@ -239,19 +241,19 @@ def score_tts_asr(
 
     root = project_root.expanduser().resolve()
     try:
-        TypeAdapter(Identifier).validate_python(engine_name)
+        TypeAdapter(Identifier).validate_python(candidate_name)
     except ValidationError as error:
         raise QualificationError(
-            f"invalid TTS engine name {engine_name!r}; use a configured qualification engine"
+            f"invalid TTS candidate name {candidate_name!r}; use a qualified candidate name"
         ) from error
     asr = load_asr_candidate(candidate_path(root, "asr"))
     _validate_pinned_asr(asr)
     corpus = load_corpus(default_corpus_path(root))
-    source_path = root / "work" / "tts-qualification" / engine_name / "result.json"
+    source_path = root / "work" / "tts-qualification" / candidate_name / "result.json"
     source_bytes = _read_source_result(source_path)
     source_result = load_qualification_result(source_path)
     validated_inputs = _validate_source_result(
-        engine_name,
+        candidate_name,
         source_path,
         source_result,
         corpus,
@@ -259,7 +261,8 @@ def score_tts_asr(
     loaded_dependencies = dependencies or _import_dependencies()
     snapshot = _resolve_snapshot(loaded_dependencies, asr)
     return _score_validated_inputs(
-        engine_name=engine_name,
+        candidate_name=candidate_name,
+        engine=source_result.engine,
         project_root=root,
         source_result_sha256=sha256_bytes(source_bytes),
         corpus=corpus,
@@ -308,9 +311,10 @@ def render_asr_report(result: AsrQualificationResult) -> str:
         ),
     )[:5]
     lines = [
-        f"# ASR qualification: {result.engine}",
+        f"# ASR qualification: {result.candidate_name}",
         "",
         f"- Status: `{result.status}`.",
+        f"- Engine: `{result.engine}`.",
         f"- ASR model: `{result.asr.model_id}@{result.asr.revision}`.",
         f"- Source TTS result SHA-256: `{result.source_tts_result_sha256}`.",
         f"- Completed excerpts: {result.overall.completed_count}/{result.overall.sample_count}.",
@@ -352,7 +356,8 @@ def render_asr_report(result: AsrQualificationResult) -> str:
 
 def _score_validated_inputs(
     *,
-    engine_name: str,
+    candidate_name: str,
+    engine: str,
     project_root: Path,
     source_result_sha256: str,
     corpus: QualificationCorpus,
@@ -375,14 +380,15 @@ def _score_validated_inputs(
     overall = _aggregate(samples)
     result = AsrQualificationResult(
         status=status,
-        engine=engine_name,
+        candidate_name=candidate_name,
+        engine=engine,
         source_tts_result_sha256=source_result_sha256,
         corpus_sha256=canonical_sha256(corpus),
         asr=asr,
         settings=AsrSettings(),
         samples=samples,
         overall=overall,
-        by_engine={engine_name: overall},
+        by_engine={engine: overall},
         by_category={
             category: _aggregate(
                 tuple(sample for sample in samples if category in sample.categories)
@@ -393,7 +399,7 @@ def _score_validated_inputs(
             )
         },
     )
-    output_root = project_root / "work" / "tts-qualification" / "asr" / engine_name
+    output_root = project_root / "work" / "tts-qualification" / "asr" / candidate_name
     store = ArtifactStore(output_root)
     result_reference = store.write_bytes(RESULT_PATH, canonical_json_bytes(result) + b"\n")
     report_reference = store.write_bytes(
@@ -402,7 +408,8 @@ def _score_validated_inputs(
     )
     return AsrQualificationSummary(
         status=status,
-        engine=engine_name,
+        candidate_name=candidate_name,
+        engine=engine,
         source_tts_result_sha256=source_result_sha256,
         sample_count=len(samples),
         completed_count=len(samples) - failed_count,
@@ -456,19 +463,20 @@ def _score_sample(
 
 
 def _validate_source_result(
-    engine_name: str,
+    candidate_name: str,
     source_path: Path,
     result: QualificationResult,
     corpus: QualificationCorpus,
 ) -> tuple[_ValidatedInput, ...]:
-    if result.engine != engine_name:
+    if result.candidate_name != candidate_name:
         raise QualificationError(
-            f"TTS result engine {result.engine!r} does not match requested engine {engine_name!r}"
+            f"TTS result candidate {result.candidate_name!r} does not match requested "
+            f"candidate {candidate_name!r}"
         )
     if result.status != "completed":
         raise QualificationError(
             f"ASR scoring requires a completed 24-sample TTS result; {source_path} "
-            f"has status {result.status!r}. Rerun `bilbo qualify-tts {engine_name}` first"
+            f"has status {result.status!r}. Rerun `bilbo qualify-tts {candidate_name}` first"
         )
     corpus_sha256 = canonical_sha256(corpus)
     if result.corpus_sha256 != corpus_sha256:
@@ -498,7 +506,7 @@ def _validate_source_result(
             raise QualificationError(
                 f"TTS qualification WAV checksum mismatch for {sample.excerpt_id}: "
                 f"expected {sample.wav_sha256}, got {actual_checksum}. Regenerate "
-                f"`bilbo qualify-tts {engine_name}` before ASR scoring"
+                f"`bilbo qualify-tts {candidate_name}` before ASR scoring"
             )
         try:
             metadata = validate_wav_bytes(
@@ -508,12 +516,12 @@ def _validate_source_result(
         except AudioValidationError as error:
             raise QualificationError(
                 f"invalid TTS qualification WAV for {sample.excerpt_id}: {error}. "
-                f"Regenerate `bilbo qualify-tts {engine_name}` before ASR scoring"
+                f"Regenerate `bilbo qualify-tts {candidate_name}` before ASR scoring"
             ) from error
         if metadata != sample.audio:
             raise QualificationError(
                 f"TTS qualification WAV metadata changed for {sample.excerpt_id}. "
-                f"Regenerate `bilbo qualify-tts {engine_name}` before ASR scoring"
+                f"Regenerate `bilbo qualify-tts {candidate_name}` before ASR scoring"
             )
         validated.append(_ValidatedInput(excerpt=excerpt, wav_path=wav_path.resolve()))
     return tuple(validated)

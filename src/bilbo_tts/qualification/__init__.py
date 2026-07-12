@@ -21,7 +21,7 @@ from bilbo_tts.qualification.corpus import (
 )
 from bilbo_tts.qualification.listening import (
     ListeningPackageSummary,
-    prepare_listening_for_engines,
+    prepare_listening_for_candidates,
     prepare_listening_package,
 )
 from bilbo_tts.qualification.results import (
@@ -48,7 +48,7 @@ __all__ = [
     "load_asr_candidate",
     "load_corpus",
     "load_tts_candidate",
-    "prepare_listening_for_engines",
+    "prepare_listening_for_candidates",
     "prepare_listening_package",
     "qualify_tts",
     "run_qualification",

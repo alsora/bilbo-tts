@@ -98,10 +98,10 @@ def load_asr_candidate(path: Path) -> AsrCandidateConfig:
         ) from error
 
 
-def candidate_path(project_root: Path, engine: str) -> Path:
-    """Resolve a committed candidate configuration by engine name."""
+def candidate_path(project_root: Path, name: str) -> Path:
+    """Resolve a committed candidate configuration by file stem."""
 
-    return project_root.expanduser().resolve() / "config" / "qualification" / f"{engine}.yaml"
+    return project_root.expanduser().resolve() / "config" / "qualification" / f"{name}.yaml"
 
 
 def fake_candidate() -> TtsCandidateConfig:

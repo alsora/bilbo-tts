@@ -74,10 +74,11 @@ class QualificationSample(ContractModel):
 
 
 class QualificationResult(ContractModel):
-    """Complete qualification evidence for one engine and corpus."""
+    """Complete qualification evidence for one candidate and corpus."""
 
     schema_version: Literal["tts-qualification-result/v1"] = "tts-qualification-result/v1"
     status: Literal["completed", "partial", "failed"]
+    candidate_name: Identifier
     engine: Identifier
     corpus_sha256: Sha256
     candidate: TtsCandidateConfig
@@ -138,6 +139,7 @@ class TtsQualificationSummary(ContractModel):
 
     schema_version: Literal["tts-qualification-summary/v1"] = "tts-qualification-summary/v1"
     status: Literal["completed", "partial", "failed"]
+    candidate_name: Identifier
     engine: Identifier
     corpus_sha256: Sha256
     sample_count: int = Field(ge=0)

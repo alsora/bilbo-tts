@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
+import yaml
 
 from bilbo_tts.config import VoiceConfig
 from bilbo_tts.models import ModelIdentity, SynthesisSettings
@@ -16,8 +18,14 @@ from bilbo_tts.qualification.corpus import (
 )
 from bilbo_tts.qualification.listening import prepare_listening_package
 from bilbo_tts.qualification.results import QualificationError, load_qualification_result
-from bilbo_tts.qualification.runner import render_qualification_report, run_qualification
+from bilbo_tts.qualification.runner import (
+    qualify_tts,
+    render_qualification_report,
+    run_qualification,
+)
 from bilbo_tts.tts import FakeTtsEngine, TtsCapabilities, TtsHealth, TtsRequest, TtsResult
+
+ROOT = Path(__file__).parents[1]
 
 
 def small_corpus() -> QualificationCorpus:
@@ -76,10 +84,18 @@ class PartialEngine:
 def run_fake(
     root: Path,
     engine: CandidateEngine = "fake",
+    candidate_name: str | None = None,
 ) -> tuple[TtsCandidateConfig, Path]:
     config = candidate(engine)
-    summary = run_qualification(fake_for(config), config, small_corpus(), root)
-    return config, root / "work" / "tts-qualification" / engine / summary.result_path
+    name = candidate_name or engine
+    summary = run_qualification(
+        fake_for(config),
+        config,
+        small_corpus(),
+        root,
+        candidate_name=name,
+    )
+    return config, root / "work" / "tts-qualification" / name / summary.result_path
 
 
 def test_full_fake_runner_writes_valid_wavs_result_and_compact_report(tmp_path: Path) -> None:
@@ -88,6 +104,7 @@ def test_full_fake_runner_writes_valid_wavs_result_and_compact_report(tmp_path: 
     report = result_path.with_name("summary.md").read_text(encoding="utf-8")
 
     assert result.status == "completed"
+    assert result.candidate_name == "fake"
     assert len(result.samples) == 24
     assert result.candidate == config
     assert result.total_audio_seconds > 0
@@ -117,6 +134,7 @@ def test_runner_continues_after_one_sample_failure_and_removes_stale_wav(
         config,
         small_corpus(),
         tmp_path,
+        candidate_name="fake",
     )
     result = load_qualification_result(output / summary.result_path)
 
@@ -135,13 +153,25 @@ def test_runner_rejects_capability_health_and_sample_rate_mismatches(tmp_path: P
     config = candidate("fake")
     wrong_identity = candidate("kokoro")
     with pytest.raises(QualificationError, match="capabilities do not match"):
-        run_qualification(fake_for(wrong_identity), config, small_corpus(), tmp_path)
+        run_qualification(
+            fake_for(wrong_identity),
+            config,
+            small_corpus(),
+            tmp_path,
+            candidate_name="fake",
+        )
 
     wrong_rate = config.model_copy(
         update={"settings": SynthesisSettings(sample_rate_hz=24_000, seed=17)}
     )
     with pytest.raises(QualificationError, match="sample rate"):
-        run_qualification(fake_for(config), wrong_rate, small_corpus(), tmp_path)
+        run_qualification(
+            fake_for(config),
+            wrong_rate,
+            small_corpus(),
+            tmp_path,
+            candidate_name="fake",
+        )
 
     class UnhealthyEngine(PartialEngine):
         def health(self) -> TtsHealth:
@@ -149,7 +179,13 @@ def test_runner_rejects_capability_health_and_sample_rate_mismatches(tmp_path: P
             return report.model_copy(update={"healthy": False, "detail": "model unavailable"})
 
     with pytest.raises(QualificationError, match="model unavailable"):
-        run_qualification(UnhealthyEngine(fake_for(config)), config, small_corpus(), tmp_path)
+        run_qualification(
+            UnhealthyEngine(fake_for(config)),
+            config,
+            small_corpus(),
+            tmp_path,
+            candidate_name="fake",
+        )
 
 
 def test_listening_package_is_deterministic_and_keeps_mapping_separate(
@@ -175,7 +211,70 @@ def test_listening_package_is_deterministic_and_keeps_mapping_separate(
     assert "excerpt-01" not in rating
     assert "clip-001" in rating
     mapping = json.loads(first_mapping)
-    assert {clip["engine"] for clip in mapping["clips"]} == {"fake", "kokoro"}
+    assert {clip["candidate_name"] for clip in mapping["clips"]} == {"fake", "kokoro"}
+
+
+def test_qualify_tts_resolves_named_variant_configurations(tmp_path: Path) -> None:
+    config_root = tmp_path / "config" / "qualification"
+    config_root.mkdir(parents=True)
+    shutil.copy(ROOT / "config" / "qualification" / "corpus.yaml", config_root)
+    (config_root / "fake-fast.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "tts-candidate/v1",
+                "engine": "fake",
+                "backend": "stdlib",
+                "model_id": "bilbo-tts/fake",
+                "model": {"engine": "fake", "revision": "fake-v1"},
+                "voice": {"voice_id": "fake-voice"},
+                "settings": {"sample_rate_hz": 24_000, "seed": 99},
+                "inference_parameters": {"variant": "fast"},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    summary = qualify_tts("fake-fast", tmp_path)
+    result_path = tmp_path / "work" / "tts-qualification" / "fake-fast" / summary.result_path
+    result = load_qualification_result(result_path)
+
+    assert summary.candidate_name == "fake-fast"
+    assert summary.engine == "fake"
+    assert summary.status == "completed"
+    assert result.candidate_name == "fake-fast"
+    assert result.candidate.inference_parameters == {"variant": "fast"}
+
+    with pytest.raises(QualificationError, match="invalid candidate name"):
+        qualify_tts("../escape", tmp_path)
+
+
+def test_variants_of_one_engine_qualify_and_blind_compare_side_by_side(tmp_path: Path) -> None:
+    _, baseline_result = run_fake(tmp_path, "fake", candidate_name="fake")
+    _, variant_result = run_fake(tmp_path, "fake", candidate_name="fake-fast")
+
+    baseline = load_qualification_result(baseline_result)
+    variant = load_qualification_result(variant_result)
+    summary = prepare_listening_package(
+        (baseline_result, variant_result),
+        tmp_path / "listening",
+        seed=7,
+    )
+    mapping = json.loads((tmp_path / "listening" / summary.mapping_path).read_bytes())
+
+    assert baseline.candidate_name == "fake"
+    assert variant.candidate_name == "fake-fast"
+    assert baseline.engine == variant.engine == "fake"
+    assert baseline_result.parent != variant_result.parent
+    assert summary.candidate_count == 2
+    assert {clip["candidate_name"] for clip in mapping["clips"]} == {"fake", "fake-fast"}
+
+    with pytest.raises(QualificationError, match="distinct candidate names"):
+        prepare_listening_package(
+            (baseline_result, baseline_result),
+            tmp_path / "duplicate",
+            seed=7,
+        )
 
 
 def test_listening_rejects_incomplete_mismatched_and_corrupt_inputs(tmp_path: Path) -> None:

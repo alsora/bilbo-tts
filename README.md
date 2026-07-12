@@ -305,6 +305,8 @@ Committed text-stage fixtures and reviewed goldens run without model downloads:
 ## TTS qualification
 
 The fixed reviewed Italian corpus and exact candidate configurations live under `config/qualification/`.
+Qualification commands select a candidate by name: the stem of a `config/qualification/<name>.yaml` file.
+One engine can therefore have several qualified variants side by side, such as `chatterbox` and an experimental `chatterbox-fp16`, each with its own evidence under `work/tts-qualification/<name>/`.
 The default development environment can run the deterministic fake candidate without importing or downloading a model.
 The qualified default is Chatterbox Multilingual V3 with its pinned built-in voice.
 The qualified fallback is Kokoro-82M with Italian voice `if_sara`.
@@ -352,7 +354,7 @@ After a candidate has a completed 24-sample `result.json`, score it from the sep
 Do not run a TTS qualification process while `score-tts-asr` is running because both model families use unified memory.
 The scorer validates the complete TTS result and every referenced WAV and checksum before loading the pinned `mlx-community/whisper-large-v3-turbo` snapshot.
 It resolves revision `a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb` once, transcribes all samples sequentially, and never resolves a mutable branch.
-ASR evidence is written atomically below `work/tts-qualification/asr/<engine>/` as canonical `result.json` and compact `summary.md`.
+ASR evidence is written atomically below `work/tts-qualification/asr/<candidate-name>/` as canonical `result.json` and compact `summary.md`.
 Comparison normalization applies Unicode canonical normalization and case folding, canonicalizes apostrophe variants while retaining the apostrophe, replaces other punctuation with spaces, removes accent distinctions, and collapses whitespace identically for references and transcripts.
 WER counts normalized whitespace-delimited words, while CER counts normalized non-whitespace characters.
 Both rates use the reference-unit count as their denominator.
@@ -375,11 +377,11 @@ If health reports a missing package, rerun the command in the matching Pixi envi
 If health reports unavailable MPS or Metal, verify that the command is running on Apple Silicon in the intended environment.
 For an MPS or Metal out-of-memory failure, stop other GPU workloads and rerun the failed smoke test before attempting the full corpus.
 Treat a repeated model-load or memory failure as qualification evidence instead of changing the pinned model or settings.
-If ASR rejects an incomplete TTS result or a WAV checksum, rerun that engine's complete `qualify-tts` command before retrying scoring.
+If ASR rejects an incomplete TTS result or a WAV checksum, rerun that candidate's complete `qualify-tts` command before retrying scoring.
 If one transcription fails, inspect the failure and WAV named in the ASR summary, close other Metal workloads, and rerun the same scoring command.
 Do not edit generated evidence to recover from a failure because reruns replace reports atomically.
 
-After two complete qualification runs, create a deterministic blind-listening package:
+After two or more complete qualification runs, create a deterministic blind-listening package from their candidate names:
 
 ```shell
 .tools/bin/pixi run bilbo prepare-tts-listening chatterbox kokoro \
@@ -388,6 +390,7 @@ After two complete qualification runs, create a deterministic blind-listening pa
 ```
 
 The command writes opaque WAV names and `rating-sheet.md` below `work/tts-qualification/listening/`.
+Comparing named variants of the same engine and voice is the intended way to evaluate an engine change blind.
 Keep `mapping.json` closed until all ratings have been recorded.
 
 ## Resumable synthesis

@@ -8,8 +8,10 @@ import time
 from pathlib import Path
 from typing import Literal
 
+from pydantic import TypeAdapter, ValidationError
+
 from bilbo_tts.artifacts import ArtifactStore
-from bilbo_tts.models import VoiceIdentity
+from bilbo_tts.models import Identifier, VoiceIdentity
 from bilbo_tts.qualification.audio import pcm_wav_bytes, validate_wav_bytes
 from bilbo_tts.qualification.candidates import (
     TtsCandidateConfig,
@@ -39,22 +41,24 @@ RESULT_PATH = "result.json"
 REPORT_PATH = "summary.md"
 
 
-def qualify_tts(engine_name: str, project_root: Path) -> TtsQualificationSummary:
-    """Load committed inputs and qualify one explicitly selected engine."""
+def qualify_tts(candidate_name: str, project_root: Path) -> TtsQualificationSummary:
+    """Load committed inputs and qualify one explicitly selected candidate.
 
+    The candidate name is the configuration file stem under
+    `config/qualification/`, so one engine can have several named variants
+    qualified side by side.
+    """
+
+    _validate_candidate_name(candidate_name)
     root = project_root.expanduser().resolve()
     candidate = (
         fake_candidate()
-        if engine_name == "fake"
-        else load_tts_candidate(candidate_path(root, engine_name))
+        if candidate_name == "fake"
+        else load_tts_candidate(candidate_path(root, candidate_name))
     )
-    if candidate.engine != engine_name:
-        raise QualificationError(
-            f"candidate engine {candidate.engine!r} does not match requested engine {engine_name!r}"
-        )
     corpus = load_corpus(default_corpus_path(root))
     engine = create_tts_engine(candidate, root)
-    return run_qualification(engine, candidate, corpus, root)
+    return run_qualification(engine, candidate, corpus, root, candidate_name=candidate_name)
 
 
 def run_qualification(
@@ -62,6 +66,8 @@ def run_qualification(
     candidate: TtsCandidateConfig,
     corpus: QualificationCorpus,
     project_root: Path,
+    *,
+    candidate_name: str,
 ) -> TtsQualificationSummary:
     """Run one engine across the full corpus and persist all evidence."""
 
@@ -77,7 +83,7 @@ def run_qualification(
         raise QualificationError(f"{candidate.engine} health check failed: {health.detail}")
 
     output_root = (
-        project_root.expanduser().resolve() / "work" / "tts-qualification" / candidate.engine
+        project_root.expanduser().resolve() / "work" / "tts-qualification" / candidate_name
     )
     store = ArtifactStore(output_root)
     samples = tuple(
@@ -93,6 +99,7 @@ def run_qualification(
     )
     result = QualificationResult(
         status=status,
+        candidate_name=candidate_name,
         engine=candidate.engine,
         corpus_sha256=canonical_sha256(corpus),
         candidate=candidate,
@@ -114,6 +121,7 @@ def run_qualification(
     )
     return TtsQualificationSummary(
         status=result.status,
+        candidate_name=result.candidate_name,
         engine=result.engine,
         corpus_sha256=result.corpus_sha256,
         sample_count=len(samples),
@@ -132,9 +140,10 @@ def render_qualification_report(result: QualificationResult) -> str:
     completed = sum(sample.status == "completed" for sample in result.samples)
     failures = [sample for sample in result.samples if sample.failure is not None]
     lines = [
-        f"# TTS qualification: {result.engine}",
+        f"# TTS qualification: {result.candidate_name}",
         "",
         f"- Status: `{result.status}`.",
+        f"- Engine: `{result.engine}`.",
         f"- Corpus excerpts: {len(result.samples)}.",
         f"- Completed excerpts: {completed}.",
         f"- Failed excerpts: {len(failures)}.",
@@ -221,6 +230,16 @@ def _qualify_excerpt(
                 message=str(error) or repr(error),
             ),
         )
+
+
+def _validate_candidate_name(candidate_name: str) -> None:
+    try:
+        TypeAdapter(Identifier).validate_python(candidate_name)
+    except ValidationError as error:
+        raise QualificationError(
+            f"invalid candidate name {candidate_name!r}; use the stem of a configuration "
+            "file under config/qualification/"
+        ) from error
 
 
 def _process_peak_rss_bytes() -> int | None:

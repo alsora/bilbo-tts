@@ -23,7 +23,7 @@ from bilbo_tts.qualification import (
     CandidateConfigurationError,
     CorpusError,
     QualificationError,
-    prepare_listening_for_engines,
+    prepare_listening_for_candidates,
     qualify_tts,
     score_tts_asr,
 )
@@ -51,10 +51,13 @@ ChapterOption = Annotated[
     str,
     typer.Option("--chapter", help="Stable chapter identifier."),
 ]
-EngineArgument = Annotated[str, typer.Argument(help="Qualification engine name.")]
-EnginesArgument = Annotated[
+CandidateArgument = Annotated[
+    str,
+    typer.Argument(help="Candidate name: a config/qualification/<name>.yaml stem."),
+]
+CandidatesArgument = Annotated[
     list[str],
-    typer.Argument(help="Two or more qualified engine names."),
+    typer.Argument(help="Two or more qualified candidate names."),
 ]
 SeedOption = Annotated[int, typer.Option("--seed", help="Blind-order randomization seed.")]
 
@@ -226,13 +229,13 @@ def synthesize(
 
 @app.command("qualify-tts")
 def qualify_tts_command(
-    engine: EngineArgument,
+    candidate: CandidateArgument,
     project_root: ProjectRootOption = Path("."),
 ) -> None:
     """Generate qualification WAV files and auditable reports."""
 
     try:
-        summary = qualify_tts(engine, project_root)
+        summary = qualify_tts(candidate, project_root)
     except (
         ArtifactError,
         CandidateConfigurationError,
@@ -249,14 +252,14 @@ def qualify_tts_command(
 
 @app.command("prepare-tts-listening")
 def prepare_tts_listening_command(
-    engines: EnginesArgument,
+    candidates: CandidatesArgument,
     project_root: ProjectRootOption = Path("."),
     seed: SeedOption = 20_260_711,
 ) -> None:
     """Build a deterministic blinded listening package."""
 
     try:
-        summary = prepare_listening_for_engines(tuple(engines), project_root, seed)
+        summary = prepare_listening_for_candidates(tuple(candidates), project_root, seed)
     except (ArtifactError, AudioValidationError, QualificationError) as error:
         _fail_stage("tts-listening-summary/v1", error)
 
@@ -265,13 +268,13 @@ def prepare_tts_listening_command(
 
 @app.command("score-tts-asr")
 def score_tts_asr_command(
-    engine: EngineArgument,
+    candidate: CandidateArgument,
     project_root: ProjectRootOption = Path("."),
 ) -> None:
     """Score one completed TTS qualification in the separate ASR environment."""
 
     try:
-        summary = score_tts_asr(engine, project_root)
+        summary = score_tts_asr(candidate, project_root)
     except (
         ArtifactError,
         CandidateConfigurationError,
