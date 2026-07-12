@@ -20,7 +20,8 @@ from bilbo_tts.models import (
 )
 from bilbo_tts.serialization import canonical_sha256, sha256_bytes
 
-BUILTIN_LEXICON_PATH = Path(__file__).parents[3] / "config" / "lexicons" / "finance-it.yaml"
+SHARED_LEXICON_DIR = Path(__file__).parents[3] / "config" / "lexicons"
+BUILTIN_LEXICON_PATH = SHARED_LEXICON_DIR / "finance-it.yaml"
 
 
 class LexiconError(ValueError):
@@ -114,15 +115,21 @@ class LoadedLexicons(ContractModel):
 
 
 def load_lexicons(book_dir: Path, configured: tuple[LexiconConfig, ...]) -> LoadedLexicons:
-    """Load the built-in finance lexicon and checked book overlays."""
+    """Load the built-in finance lexicon and checked book or shared overlays."""
 
     loaded = [_load_path(BUILTIN_LEXICON_PATH, "builtin:finance-it")]
-    root = book_dir.expanduser().resolve()
+    roots = {
+        "book": book_dir.expanduser().resolve(),
+        "shared": SHARED_LEXICON_DIR.resolve(),
+    }
     for item in configured:
+        root = roots[item.scope]
         path = root.joinpath(*Path(item.path).parts).resolve(strict=False)
         if not path.is_relative_to(root):
-            raise LexiconError(f"configured lexicon escapes the book directory: {item.path}")
-        lexicon = _load_path(path, item.path)
+            raise LexiconError(
+                f"configured lexicon escapes the {item.scope} directory: {item.path}"
+            )
+        lexicon = _load_path(path, f"{item.scope}:{item.path}")
         if lexicon.sha256 != item.sha256:
             raise LexiconError(
                 f"lexicon checksum mismatch for {item.path}: "

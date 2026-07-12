@@ -84,6 +84,7 @@ class LexiconConfig(ContractModel):
 
     path: RelativePath
     sha256: Sha256
+    scope: Literal["book", "shared"] = "book"
 
     @field_validator("path")
     @classmethod
@@ -105,9 +106,9 @@ class NormalizationConfig(ContractModel):
     def lexicon_paths_are_unique(
         cls, lexicons: tuple[LexiconConfig, ...]
     ) -> tuple[LexiconConfig, ...]:
-        paths = [lexicon.path for lexicon in lexicons]
-        if len(paths) != len(set(paths)):
-            raise ValueError("lexicon paths must be unique")
+        keys = [(lexicon.scope, lexicon.path) for lexicon in lexicons]
+        if len(keys) != len(set(keys)):
+            raise ValueError("lexicon paths must be unique within their scope")
         return lexicons
 
 

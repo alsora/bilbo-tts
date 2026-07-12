@@ -136,6 +136,17 @@ def test_lexicon_paths_must_be_unique_yaml_files() -> None:
         LexiconConfig(path="finance.json", sha256=HASH_A)
 
 
+def test_lexicon_scope_defaults_to_book_and_disambiguates_paths() -> None:
+    book = LexiconConfig(path="overlay.yaml", sha256=HASH_A)
+    shared = LexiconConfig(path="overlay.yaml", sha256=HASH_A, scope="shared")
+
+    assert book.scope == "book"
+    config = NormalizationConfig(version="v1", lexicons=(book, shared))
+    assert [lexicon.scope for lexicon in config.lexicons] == ["book", "shared"]
+    with pytest.raises(ValidationError, match="must be unique"):
+        NormalizationConfig(version="v1", lexicons=(shared, shared))
+
+
 def test_config_loader_reports_file_and_yaml_errors(tmp_path: Path) -> None:
     missing = tmp_path / "missing.yaml"
     with pytest.raises(ConfigurationError, match="cannot read"):

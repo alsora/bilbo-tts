@@ -20,6 +20,7 @@ from bilbo_tts.normalization import (
     load_lexicons,
     normalize_document,
 )
+from bilbo_tts.normalization.lexicon import SHARED_LEXICON_DIR
 from bilbo_tts.normalization.rules import apply_rules
 from bilbo_tts.serialization import sha256_bytes
 
@@ -183,6 +184,33 @@ def test_configured_overlay_precedes_builtin_at_equal_priority(tmp_path: Path) -
 
     assert spoken == "e ti effe"
     assert transformations[0].rule_id == "lexicon.model-overlay.etf"
+
+
+def test_shared_scope_loads_from_repository_lexicon_directory(tmp_path: Path) -> None:
+    shared_path = SHARED_LEXICON_DIR / "kokoro-it.yaml"
+    checksum = sha256_bytes(shared_path.read_bytes())
+
+    loaded = load_lexicons(
+        tmp_path,
+        (LexiconConfig(path="kokoro-it.yaml", sha256=checksum, scope="shared"),),
+    )
+
+    assert loaded.lexicons[1].source == "shared:kokoro-it.yaml"
+    spoken, transformations, _ = apply_rules("La duration conta.", loaded)
+    assert spoken == "La durèscion conta."
+    assert transformations[0].rule_id == "lexicon.kokoro-it.loanword-duration"
+
+
+def test_shared_scope_rejects_paths_escaping_the_lexicon_directory(tmp_path: Path) -> None:
+    # Bypass model validation to exercise the loader's own escape guard.
+    escape = LexiconConfig.model_construct(
+        path="inner/../../secrets.yaml",
+        sha256="0" * 64,
+        scope="shared",
+    )
+
+    with pytest.raises(LexiconError, match="escapes the shared directory"):
+        load_lexicons(tmp_path, (escape,))
 
 
 def test_lexicon_checksum_and_schema_are_validated(tmp_path: Path) -> None:
