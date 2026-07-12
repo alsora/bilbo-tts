@@ -400,6 +400,12 @@ Treat that as known noise when reviewing verification reports rather than as a s
 The fixed reviewed Italian corpus and exact candidate configurations live under `config/qualification/`.
 Qualification commands select a candidate by name: the stem of a `config/qualification/<name>.yaml` file.
 One engine can therefore have several qualified variants side by side, such as `chatterbox` and an experimental `chatterbox-fp16`, each with its own evidence under `work/tts-qualification/<name>/`.
+Three committed experimental Chatterbox variants exist for speed evaluation against the pinned `chatterbox` baseline:
+`chatterbox-fp16` runs the T3 transformer and built-in conditionals in float16;
+`chatterbox-nowm` skips the Perth neural watermark;
+`chatterbox-turbo` samples without classifier-free guidance through the upstream batch-1 turbo path.
+The dtype and sampler experiments require the built-in voice.
+None of them changes the pinned production default until its adoption is recorded in `design.md`.
 The default development environment can run the deterministic fake candidate without importing or downloading a model.
 The qualified default is Chatterbox Multilingual V3 with its pinned built-in voice.
 The qualified fallback is Kokoro-82M with Italian voice `if_sara`.
@@ -428,6 +434,7 @@ BILBO_HARDWARE_TESTS=1 .tools/bin/pixi run -e kokoro pytest \
 
 The smoke tests use the same short committed Italian excerpt and are skipped unless `BILBO_HARDWARE_TESTS=1`.
 They resolve only the immutable model revisions recorded in the candidate configurations.
+Set `BILBO_CHATTERBOX_SMOKE_CANDIDATE=<name>` to smoke-test a committed Chatterbox variant before running its full corpus.
 Chatterbox requires macOS 15.1 or newer because earlier MPS frameworks reject long-output convolution even when the short smoke test passes.
 Run a complete candidate only after its smoke test passes:
 

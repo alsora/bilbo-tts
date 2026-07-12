@@ -1,0 +1,27 @@
+schema_version: tts-candidate/v1
+engine: chatterbox
+backend: pytorch-mps
+model_id: ResembleAI/chatterbox
+model:
+  engine: chatterbox
+  revision: 5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18
+code_revision: 65b18437192794391a0308a8f705b1e33e633948
+voice:
+  voice_id: builtin
+settings:
+  sample_rate_hz: 24000
+  seed: 20260711
+  speed: 1.0
+  temperature: 0.8
+inference_parameters:
+  t3_model: v3
+  exaggeration: 0.5
+  cfg_weight: 0.5
+  repetition_penalty: 1.2
+  min_p: 0.05
+  top_p: 1.0
+  watermark: false
+notes:
+  - Experimental variant of the pinned chatterbox default for speed evaluation.
+  - Skips the Perth neural watermark applied to every generated chunk.
+  - Adopting this permanently is a deliberate policy decision to record in design.md.

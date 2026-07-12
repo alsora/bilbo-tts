@@ -4,6 +4,7 @@ import hashlib
 import math
 import random
 import struct
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from typing import Any, cast
 
@@ -47,11 +48,19 @@ class FakeTorch:
     def __init__(self, events: list[tuple[str, object]], available: bool = True) -> None:
         self.backends = FakeBackends(available)
         self.float32 = object()
+        self.float16 = object()
+        self.bfloat16 = object()
         self.events = events
 
     def manual_seed(self, seed: int) -> object:
         self.events.append(("torch", seed))
         return object()
+
+    def inference_mode(self) -> AbstractContextManager[None]:
+        return nullcontext()
+
+    def from_numpy(self, values: list[float]) -> FakeNumpyValues:
+        return FakeNumpyValues(values, self.float32)
 
 
 class FakeNumpyRandom:
@@ -95,6 +104,123 @@ class FakeTensor:
         return list(self.samples)
 
 
+class FakeCastable:
+    def __init__(self, events: list[tuple[str, object]], label: str) -> None:
+        self.events = events
+        self.label = label
+
+    def to(self, *, dtype: object) -> FakeCastable:
+        self.events.append((f"cast-{self.label}", dtype))
+        return self
+
+
+class FakeConditionals:
+    def __init__(self, events: list[tuple[str, object]]) -> None:
+        self.t3 = FakeCastable(events, "conds")
+        self.gen = {"ref": "builtin"}
+
+
+class FakeWatermarker:
+    def __init__(self) -> None:
+        self.calls: list[int] = []
+
+    def apply_watermark(self, signal: object, *, sample_rate: int) -> object:
+        self.calls.append(sample_rate)
+        return signal
+
+
+class FakeT3Config:
+    start_text_token = 1
+    stop_text_token = 2
+
+
+class FakeTokenRow:
+    def __init__(self, count: int) -> None:
+        self.count = count
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return (self.count,)
+
+    def to(self, _device: str) -> FakeTokenRow:
+        return self
+
+
+class FakeBatchedTokens:
+    def __init__(self, row: FakeTokenRow) -> None:
+        self.row = row
+
+    def __getitem__(self, index: int) -> FakeTokenRow:
+        assert index == 0
+        return self.row
+
+
+class FakeT3:
+    def __init__(self, events: list[tuple[str, object]], row: FakeTokenRow) -> None:
+        self.events = events
+        self.row = row
+        self.hp = FakeT3Config()
+        self.turbo_calls: list[dict[str, object]] = []
+
+    def to(self, *, dtype: object) -> FakeT3:
+        self.events.append(("cast-t3", dtype))
+        return self
+
+    def inference_turbo(self, **kwargs: object) -> FakeBatchedTokens:
+        self.turbo_calls.append(kwargs)
+        return FakeBatchedTokens(self.row)
+
+
+class FakeTextTokens:
+    def to(self, _device: str) -> FakeTextTokens:
+        return self
+
+
+class FakeTokenizer:
+    def __init__(self, events: list[tuple[str, object]]) -> None:
+        self.events = events
+
+    def text_to_tokens(self, text: str, *, language_id: str) -> FakeTextTokens:
+        self.events.append(("tokenize", (text, language_id)))
+        return FakeTextTokens()
+
+
+class FakeWav:
+    def __init__(self, samples: list[float]) -> None:
+        self.samples = samples
+
+    def squeeze(self, _dim: int) -> FakeWav:
+        return self
+
+    def detach(self) -> FakeWav:
+        return self
+
+    def cpu(self) -> FakeWav:
+        return self
+
+    def numpy(self) -> list[float]:
+        return list(self.samples)
+
+
+class FakeS3Gen:
+    def __init__(self, wav: FakeWav) -> None:
+        self.wav = wav
+        self.calls: list[tuple[object, object]] = []
+
+    def inference(self, *, speech_tokens: object, ref_dict: object) -> tuple[FakeWav, None]:
+        self.calls.append((speech_tokens, ref_dict))
+        return self.wav, None
+
+
+class FakeNumpyValues:
+    def __init__(self, values: list[float], dtype: object) -> None:
+        self.values = values
+        self.dtype = dtype
+
+    def unsqueeze(self, _dim: int) -> FakeTensor:
+        return FakeTensor(list(self.values), self.dtype)
+
+
 class FakeChatterboxModel:
     def __init__(
         self,
@@ -106,6 +232,11 @@ class FakeChatterboxModel:
         self.events = events
         self.error = error
         self.calls: list[dict[str, object]] = []
+        self.t3: object = FakeCastable(events, "t3")
+        self.conds = FakeConditionals(events)
+        self.watermarker: object = FakeWatermarker()
+        self.tokenizer = FakeTokenizer(events)
+        self.s3gen = FakeS3Gen(FakeWav([0.0]))
 
     def generate(
         self,
@@ -432,6 +563,151 @@ def test_chatterbox_success_uses_pins_settings_seed_order_and_pcm(
     assert result.settings == config.settings
 
 
+def chatterbox_variant(**overrides: object) -> TtsCandidateConfig:
+    config = candidate("chatterbox")
+    parameters = dict(config.inference_parameters)
+    parameters.update(cast(dict[str, Any], overrides))
+    return config.model_copy(update={"inference_parameters": parameters})
+
+
+def test_chatterbox_fp16_casts_t3_and_builtin_conditionals_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies, _hub, _loader, model, torch, events = chatterbox_dependencies()
+    monkeypatch.setattr(chatterbox_adapter, "_import_dependencies", lambda: dependencies)
+    config = chatterbox_variant(dtype="float16")
+    engine = chatterbox_adapter.ChatterboxTtsEngine(config, ROOT)
+
+    result = engine.synthesize(request(config))
+    engine.synthesize(request(config, text="Secondo testo."))
+
+    casts = [event for event in events if event[0].startswith("cast-")]
+    assert casts == [("cast-t3", torch.float16), ("cast-conds", torch.float16)]
+    assert not isinstance(model.watermarker, chatterbox_adapter._IdentityWatermarker)
+    assert result.pcm_s16le == struct.pack("<hhhh", -32_768, 0, 16_384, 32_767)
+
+
+def test_chatterbox_default_configuration_never_casts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies, _hub, _loader, model, _torch, events = chatterbox_dependencies()
+    monkeypatch.setattr(chatterbox_adapter, "_import_dependencies", lambda: dependencies)
+    config = candidate("chatterbox")
+    engine = chatterbox_adapter.ChatterboxTtsEngine(config, ROOT)
+
+    engine.synthesize(request(config))
+
+    assert not any(event[0].startswith("cast-") for event in events)
+    assert not isinstance(model.watermarker, chatterbox_adapter._IdentityWatermarker)
+
+
+def test_chatterbox_dtype_experiments_reject_reference_audio(tmp_path: Path) -> None:
+    audio = tmp_path / "voice.wav"
+    audio.write_bytes(b"reference")
+    config = chatterbox_variant(dtype="float16").model_copy(
+        update={
+            "voice": VoiceConfig(
+                voice_id="owned",
+                reference_path="voice.wav",
+                reference_sha256=hashlib.sha256(b"reference").hexdigest(),
+            )
+        }
+    )
+    with pytest.raises(TtsError, match="float32 cfg"):
+        chatterbox_adapter.ChatterboxTtsEngine(config, tmp_path)
+
+
+def test_chatterbox_watermark_skip_replaces_watermarker_with_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies, _hub, _loader, model, _torch, _events = chatterbox_dependencies()
+    monkeypatch.setattr(chatterbox_adapter, "_import_dependencies", lambda: dependencies)
+    config = chatterbox_variant(watermark=False)
+    engine = chatterbox_adapter.ChatterboxTtsEngine(config, ROOT)
+
+    result = engine.synthesize(request(config))
+
+    assert isinstance(model.watermarker, chatterbox_adapter._IdentityWatermarker)
+    assert result.pcm_s16le == struct.pack("<hhhh", -32_768, 0, 16_384, 32_767)
+    signal = object()
+    assert model.watermarker.apply_watermark(signal, sample_rate=24_000) is signal
+
+
+def test_chatterbox_turbo_sampler_bypasses_cfg_generate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies, _hub, _loader, model, _torch, events = chatterbox_dependencies()
+    monkeypatch.setattr(chatterbox_adapter, "_import_dependencies", lambda: dependencies)
+    pads: list[tuple[object, object]] = []
+
+    def fake_pad(tokens: object, pad: object, value: object) -> object:
+        pads.append((pad, value))
+        return tokens
+
+    helpers = chatterbox_adapter._TurboHelpers(
+        punc_norm=lambda text: f"norm:{text}",
+        drop_invalid_tokens=lambda tokens: tokens,
+        pad=fake_pad,
+        token_rate=25,
+    )
+    monkeypatch.setattr(chatterbox_adapter, "_import_turbo_helpers", lambda: helpers)
+
+    row = FakeTokenRow(3)
+    turbo_t3 = FakeT3(events, row)
+    model.t3 = turbo_t3
+    s3gen = FakeS3Gen(FakeWav([0.5] * 3_000))
+    model.s3gen = s3gen
+    watermarker = FakeWatermarker()
+    model.watermarker = watermarker
+
+    config = chatterbox_variant(sampler="turbo")
+    engine = chatterbox_adapter.ChatterboxTtsEngine(config, ROOT)
+    result = engine.synthesize(request(config))
+
+    assert model.calls == []
+    assert ("tokenize", ("norm:Breve testo italiano.", "it")) in events
+    assert pads == [((1, 0), 1), ((0, 1), 2)]
+    [turbo_call] = turbo_t3.turbo_calls
+    assert isinstance(turbo_call.pop("text_tokens"), FakeTextTokens)
+    assert turbo_call == {
+        "t3_cond": model.conds.t3,
+        "temperature": 0.8,
+        "top_k": 1000,
+        "top_p": 1.0,
+        "repetition_penalty": 1.2,
+        "max_gen_len": 1000,
+    }
+    assert s3gen.calls == [(row, model.conds.gen)]
+    # Three tokens minus the trimmed final token at 960 samples per token.
+    assert result.frame_count == 1_920
+    assert watermarker.calls == [24_000]
+    assert set(result.pcm_s16le) == set(struct.pack("<h", 16_384))
+
+
+def test_chatterbox_fp16_engine_rejects_reference_requests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audio = tmp_path / "voice.wav"
+    audio.write_bytes(b"reference")
+    dependencies, *_rest = chatterbox_dependencies()
+    monkeypatch.setattr(chatterbox_adapter, "_import_dependencies", lambda: dependencies)
+    config = chatterbox_variant(dtype="float16")
+    engine = chatterbox_adapter.ChatterboxTtsEngine(config, tmp_path)
+
+    reference_request = request(config).model_copy(
+        update={
+            "voice": VoiceConfig(
+                voice_id="owned",
+                reference_path="voice.wav",
+                reference_sha256=hashlib.sha256(b"reference").hexdigest(),
+            )
+        }
+    )
+    with pytest.raises(TtsError, match="float32 cfg"):
+        engine.synthesize(reference_request)
+
+
 def test_chatterbox_reference_is_root_bounded_and_checksum_verified(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -527,6 +803,62 @@ def test_chatterbox_reference_is_root_bounded_and_checksum_verified(
                 }
             },
             "must be a number",
+        ),
+        (
+            {
+                "inference_parameters": {
+                    "t3_model": "v3",
+                    "exaggeration": 0.5,
+                    "cfg_weight": 0.5,
+                    "repetition_penalty": 1.2,
+                    "min_p": 0.05,
+                    "top_p": 1.0,
+                    "dtype": "int8",
+                }
+            },
+            "'dtype' must be one of",
+        ),
+        (
+            {
+                "inference_parameters": {
+                    "t3_model": "v3",
+                    "exaggeration": 0.5,
+                    "cfg_weight": 0.5,
+                    "repetition_penalty": 1.2,
+                    "min_p": 0.05,
+                    "top_p": 1.0,
+                    "watermark": "off",
+                }
+            },
+            "'watermark' must be a boolean",
+        ),
+        (
+            {
+                "inference_parameters": {
+                    "t3_model": "v3",
+                    "exaggeration": 0.5,
+                    "cfg_weight": 0.5,
+                    "repetition_penalty": 1.2,
+                    "min_p": 0.05,
+                    "top_p": 1.0,
+                    "sampler": "greedy",
+                }
+            },
+            "'sampler' must be one of",
+        ),
+        (
+            {
+                "inference_parameters": {
+                    "t3_model": "v3",
+                    "exaggeration": 0.5,
+                    "cfg_weight": 0.5,
+                    "repetition_penalty": 1.2,
+                    "min_p": 0.05,
+                    "top_p": 1.0,
+                    "batch_size": 2,
+                }
+            },
+            "configured keys",
         ),
     ],
 )

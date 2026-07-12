@@ -11,7 +11,7 @@ import threading
 from collections.abc import Callable
 from importlib import import_module
 from pathlib import Path
-from typing import NamedTuple, Protocol, cast
+from typing import Any, NamedTuple, Protocol, cast
 
 from bilbo_tts.qualification.candidates import TtsCandidateConfig
 from bilbo_tts.tts.audio import float_samples_to_pcm_s16le
@@ -49,6 +49,11 @@ _PARAMETER_NAMES = {
     "min_p",
     "top_p",
 }
+# Optional, strictly validated experiment knobs; absent keys keep the pinned
+# default behavior byte-identical.
+_OPTIONAL_PARAMETER_NAMES = {"dtype", "watermark", "sampler"}
+_DTYPES = ("float32", "float16", "bfloat16")
+_SAMPLERS = ("cfg", "turbo")
 _GENERATION_LOCK = threading.Lock()
 
 
@@ -88,7 +93,24 @@ class _Tensor(Protocol):
     def tolist(self) -> object: ...
 
 
+class _CastableModule(Protocol):
+    def to(self, *, dtype: object) -> object: ...
+
+
+class _T3Conditionals(Protocol):
+    def to(self, *, dtype: object) -> object: ...
+
+
+class _Conditionals(Protocol):
+    t3: _T3Conditionals
+    gen: object
+
+
 class _ChatterboxModel(Protocol):
+    t3: _CastableModule
+    conds: _Conditionals
+    watermarker: object
+
     def generate(
         self,
         text: str,
@@ -129,6 +151,32 @@ class _Dependencies(NamedTuple):
     torch: _TorchModule
 
 
+class _Parameters(NamedTuple):
+    exaggeration: float
+    cfg_weight: float
+    repetition_penalty: float
+    min_p: float
+    top_p: float
+    dtype: str
+    watermark: bool
+    sampler: str
+
+
+class _TurboHelpers(NamedTuple):
+    punc_norm: Callable[[str], str]
+    drop_invalid_tokens: Callable[[Any], Any]
+    pad: Callable[..., Any]
+    token_rate: int
+
+
+class _IdentityWatermarker:
+    """Skip Perth watermarking while keeping the upstream call shape."""
+
+    def apply_watermark(self, signal: object, *, sample_rate: int) -> object:
+        del sample_rate
+        return signal
+
+
 class ChatterboxTtsEngine:
     """Generate exact 24 kHz mono PCM through pinned Chatterbox V3."""
 
@@ -136,11 +184,7 @@ class ChatterboxTtsEngine:
         parameters = _validated_parameters(candidate)
         self._candidate = candidate
         self._project_root = project_root.expanduser().resolve()
-        self._exaggeration = parameters["exaggeration"]
-        self._cfg_weight = parameters["cfg_weight"]
-        self._repetition_penalty = parameters["repetition_penalty"]
-        self._min_p = parameters["min_p"]
-        self._top_p = parameters["top_p"]
+        self._parameters = parameters
         self._model: _ChatterboxModel | None = None
         self._model_lock = threading.Lock()
         self._capabilities = TtsCapabilities(
@@ -191,6 +235,13 @@ class ChatterboxTtsEngine:
         if request.settings.temperature <= 0:
             raise TtsError("chatterbox temperature must be greater than zero")
         reference_path = self._resolve_reference(request)
+        if reference_path is not None and (
+            self._parameters.dtype != "float32" or self._parameters.sampler != "cfg"
+        ):
+            raise TtsError(
+                "chatterbox reference audio requires the default float32 cfg configuration; "
+                "use the built-in voice with dtype or sampler experiments"
+            )
         dependencies = _import_dependencies()
         if not dependencies.torch.backends.mps.is_available():
             raise TtsError(
@@ -203,17 +254,25 @@ class ChatterboxTtsEngine:
                 random.seed(request.settings.seed)
                 dependencies.numpy.random.seed(request.settings.seed)
                 dependencies.torch.manual_seed(request.settings.seed)
-                audio = model.generate(
-                    request.spoken_text,
-                    language_id="it",
-                    audio_prompt_path=reference_path,
-                    exaggeration=self._exaggeration,
-                    cfg_weight=self._cfg_weight,
-                    temperature=request.settings.temperature,
-                    repetition_penalty=self._repetition_penalty,
-                    min_p=self._min_p,
-                    top_p=self._top_p,
-                )
+                if self._parameters.sampler == "turbo":
+                    audio = self._turbo_audio(
+                        model,
+                        dependencies,
+                        request.spoken_text,
+                        request.settings.temperature,
+                    )
+                else:
+                    audio = model.generate(
+                        request.spoken_text,
+                        language_id="it",
+                        audio_prompt_path=reference_path,
+                        exaggeration=self._parameters.exaggeration,
+                        cfg_weight=self._parameters.cfg_weight,
+                        temperature=request.settings.temperature,
+                        repetition_penalty=self._parameters.repetition_penalty,
+                        min_p=self._parameters.min_p,
+                        top_p=self._parameters.top_p,
+                    )
         except Exception as error:
             if _is_memory_error(error):
                 raise TtsError(
@@ -271,8 +330,63 @@ class ChatterboxTtsEngine:
                     f"failed to resolve or load pinned Chatterbox model {MODEL_ID}@"
                     f"{MODEL_REVISION}: {error}"
                 ) from error
+            if self._parameters.dtype != "float32":
+                torch_dtype = getattr(dependencies.torch, self._parameters.dtype)
+                # Cast only the autoregressive T3 transformer and its built-in
+                # conditionals; the s3gen vocoder stays float32 so the output
+                # WAV contract is unchanged.
+                model.t3.to(dtype=torch_dtype)
+                model.conds.t3.to(dtype=torch_dtype)
+            if not self._parameters.watermark:
+                model.watermarker = _IdentityWatermarker()
             self._model = model
             return model
+
+    def _turbo_audio(
+        self,
+        model: _ChatterboxModel,
+        dependencies: _Dependencies,
+        spoken_text: str,
+        temperature: float,
+    ) -> _Tensor:
+        """Generate without the CFG double batch through t3.inference_turbo.
+
+        This mirrors the pre- and post-processing of the pinned upstream
+        ``generate()`` (chatterbox @ CODE_REVISION) minus the unconditional
+        CFG branch, so the private attribute access below is version-locked.
+        """
+
+        helpers = _import_turbo_helpers()
+        raw: Any = model
+        torch: Any = dependencies.torch
+        text_tokens: Any = raw.tokenizer.text_to_tokens(
+            helpers.punc_norm(spoken_text),
+            language_id="it",
+        ).to("mps")
+        text_tokens = helpers.pad(text_tokens, (1, 0), value=raw.t3.hp.start_text_token)
+        text_tokens = helpers.pad(text_tokens, (0, 1), value=raw.t3.hp.stop_text_token)
+        with torch.inference_mode():
+            speech_tokens = raw.t3.inference_turbo(
+                t3_cond=raw.conds.t3,
+                text_tokens=text_tokens,
+                temperature=temperature,
+                top_k=1000,
+                top_p=self._parameters.top_p,
+                repetition_penalty=self._parameters.repetition_penalty,
+                max_gen_len=1000,
+            )[0]
+            speech_tokens = helpers.drop_invalid_tokens(speech_tokens).to("mps")
+            wav, _sources = raw.s3gen.inference(
+                speech_tokens=speech_tokens,
+                ref_dict=raw.conds.gen,
+            )
+            wav = wav.squeeze(0).detach().cpu().numpy()
+            # Drop the final speech token's audio exactly like upstream: it is
+            # emitted just before EOS and decodes to ~40 ms of noise.
+            kept_tokens = max(1, int(speech_tokens.shape[-1]) - 1)
+            wav = wav[: kept_tokens * (SAMPLE_RATE_HZ // helpers.token_rate)]
+            wav = raw.watermarker.apply_watermark(wav, sample_rate=SAMPLE_RATE_HZ)
+        return cast(_Tensor, torch.from_numpy(wav).unsqueeze(0))
 
     def _resolve_reference(self, request: TtsRequest) -> str | None:
         relative_path = request.voice.reference_path
@@ -323,7 +437,28 @@ def _import_dependencies() -> _Dependencies:
     return _Dependencies(chatterbox, hub, numpy, torch)
 
 
-def _validated_parameters(candidate: TtsCandidateConfig) -> dict[str, float]:
+def _import_turbo_helpers() -> _TurboHelpers:
+    try:
+        mtl_tts: Any = import_module("chatterbox.mtl_tts")
+        s3tokenizer: Any = import_module("chatterbox.models.s3tokenizer")
+        functional: Any = import_module("torch.nn.functional")
+    except Exception as error:
+        raise TtsError(
+            "chatterbox turbo helpers could not be imported; run this command with "
+            f"`pixi run -e chatterbox`: {error}"
+        ) from error
+    token_rate = int(s3tokenizer.S3_TOKEN_RATE)
+    if token_rate <= 0 or SAMPLE_RATE_HZ % token_rate:
+        raise TtsError(f"chatterbox speech token rate {token_rate} is incompatible")
+    return _TurboHelpers(
+        punc_norm=mtl_tts.punc_norm,
+        drop_invalid_tokens=s3tokenizer.drop_invalid_tokens,
+        pad=functional.pad,
+        token_rate=token_rate,
+    )
+
+
+def _validated_parameters(candidate: TtsCandidateConfig) -> _Parameters:
     if candidate.engine != ENGINE:
         raise TtsError(f"chatterbox adapter received engine {candidate.engine!r}")
     if candidate.backend != BACKEND:
@@ -343,22 +478,54 @@ def _validated_parameters(candidate: TtsCandidateConfig) -> dict[str, float]:
     if candidate.voice.reference_path is None and candidate.voice.voice_id != "builtin":
         raise TtsError("chatterbox built-in voice must use voice_id 'builtin'")
     names = set(candidate.inference_parameters)
-    if names != _PARAMETER_NAMES:
+    if not (_PARAMETER_NAMES <= names <= _PARAMETER_NAMES | _OPTIONAL_PARAMETER_NAMES):
         missing = sorted(_PARAMETER_NAMES - names)
-        unexpected = sorted(names - _PARAMETER_NAMES)
+        unexpected = sorted(names - _PARAMETER_NAMES - _OPTIONAL_PARAMETER_NAMES)
         raise TtsError(
             f"chatterbox inference parameters must use exactly the configured keys; "
             f"missing={missing}, unexpected={unexpected}"
         )
     if candidate.inference_parameters["t3_model"] != "v3":
         raise TtsError("chatterbox t3_model must be exactly 'v3'")
-    return {
-        "exaggeration": _number_in_range(candidate, "exaggeration", 0.0, 1.0),
-        "cfg_weight": _number_in_range(candidate, "cfg_weight", 0.0, 1.0),
-        "repetition_penalty": _number_in_range(candidate, "repetition_penalty", 0.01, 10.0),
-        "min_p": _number_in_range(candidate, "min_p", 0.0, 1.0),
-        "top_p": _number_in_range(candidate, "top_p", 0.0, 1.0),
-    }
+    parameters = _Parameters(
+        exaggeration=_number_in_range(candidate, "exaggeration", 0.0, 1.0),
+        cfg_weight=_number_in_range(candidate, "cfg_weight", 0.0, 1.0),
+        repetition_penalty=_number_in_range(candidate, "repetition_penalty", 0.01, 10.0),
+        min_p=_number_in_range(candidate, "min_p", 0.0, 1.0),
+        top_p=_number_in_range(candidate, "top_p", 0.0, 1.0),
+        dtype=_choice(candidate, "dtype", _DTYPES, "float32"),
+        watermark=_flag(candidate, "watermark", default=True),
+        sampler=_choice(candidate, "sampler", _SAMPLERS, "cfg"),
+    )
+    if candidate.voice.reference_path is not None and (
+        parameters.dtype != "float32" or parameters.sampler != "cfg"
+    ):
+        raise TtsError(
+            "chatterbox reference audio requires the default float32 cfg configuration; "
+            "use the built-in voice with dtype or sampler experiments"
+        )
+    return parameters
+
+
+def _choice(
+    candidate: TtsCandidateConfig,
+    name: str,
+    allowed: tuple[str, ...],
+    default: str,
+) -> str:
+    value = candidate.inference_parameters.get(name, default)
+    if not isinstance(value, str) or value not in allowed:
+        raise TtsError(
+            f"chatterbox inference parameter {name!r} must be one of {', '.join(allowed)}"
+        )
+    return value
+
+
+def _flag(candidate: TtsCandidateConfig, name: str, *, default: bool) -> bool:
+    value = candidate.inference_parameters.get(name, default)
+    if not isinstance(value, bool):
+        raise TtsError(f"chatterbox inference parameter {name!r} must be a boolean")
+    return value
 
 
 def _number_in_range(

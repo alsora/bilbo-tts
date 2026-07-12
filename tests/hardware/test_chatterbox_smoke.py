@@ -25,7 +25,8 @@ pytestmark = [
 def test_chatterbox_generates_short_italian_excerpt_on_apple_silicon() -> None:
     assert sys.platform == "darwin"
     assert platform.machine() == "arm64"
-    config = load_tts_candidate(candidate_path(ROOT, "chatterbox"))
+    candidate_name = os.environ.get("BILBO_CHATTERBOX_SMOKE_CANDIDATE", "chatterbox")
+    config = load_tts_candidate(candidate_path(ROOT, candidate_name))
     excerpt = load_corpus(default_corpus_path(ROOT)).excerpts[0]
     engine = create_tts_engine(config, ROOT)
 
