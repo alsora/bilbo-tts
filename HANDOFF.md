@@ -2,27 +2,24 @@
 
 ## Current state
 
-- The active branch is `milestone/c6-calibrated-verification`.
-- Milestone 6 implementation is committed as `4daacde`, its original handoff as `b51c68d`, and listening-driven corrections as `cc2097d`.
-- The reusable pinned MLX-Whisper adapter, deterministic alignment and audio heuristics, process-isolated retry coordinator, generation-bound manual decisions, manifests, and readable reports are implemented.
-- The public `bilbo verify` command runs ASR and TTS retries in non-overlapping Pixi child processes.
-- The private target book under ignored `work/c2-target-project/` has an explicit calibrated `verification` section and generated verification evidence.
-- Human listening can explicitly regenerate an automatically accepted chunk when ASR misses a pronunciation or acoustic defect.
-- The reviewed Kokoro `zero` correction uses a unique lexicon marker and the accepted `dzˈɛro` phoneme sequence after G2P.
-- Chatterbox remains the preferred long-term voice, but its benchmark and improvement work is explicitly deferred until checkpoint C8 is complete.
+- The active branch is `milestone/c7-m4b-assembly`.
+- Milestone 7 assembly is committed as `7c5f369`.
+- `bilbo assemble` now validates accepted current generations, streams sample-accurate PCM and configured pauses, creates chapter metadata, runs two-pass FFmpeg loudness normalization with one AAC encode, and validates the result with FFprobe.
+- The assembly manifest records exact inputs, commands and tool versions, loudness evidence, chapter ranges, probed metadata, overrides, and the final checksum.
+- Full-book and chapter-scoped outputs are idempotent, optional cover art is supported, and missing, failed, corrupt, wrong-format, mixed-rate, stale, or unaccepted inputs block by default.
+- The private target book under ignored `work/c2-target-project/` has a validated chapter-0002 M4B ready for the checkpoint listening review.
+- Chatterbox remains the preferred long-term voice, but its benchmark and improvement work remains deferred until checkpoint C8 is complete.
 
 ## Verification
 
-- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 300 ordinary tests, 3 expected hardware skips, and 91.82 percent coverage.
-- The opt-in MLX-Whisper hardware smoke test passes in the `asr` environment with unrestricted Metal access.
-- The existing 24-excerpt Kokoro regression evidence calibrates WER at `0.70` and CER at `0.85` so correct spoken numbers rendered as digits do not become false positives.
-- Deliberate truncation, repetition, silence, clipping, speed changes, retry exhaustion, process ordering, stale decisions, and no-op reruns are covered by committed tests.
-- Listening review covered the ten highest-risk ASR and audio outliers.
-- The `zero` candidate using contiguous `dz` phonemes was accepted; the final pipeline WAV differs from that listening candidate by at most one PCM quantization unit.
-- Regenerating the uncertain tail on `block-000031.s0002.p0000` produced perceptually identical audio, confirming Kokoro is effectively deterministic for that request.
-- The final calibrated `chapter-0002` pass classified all 156 listening-approved chunks as `accepted`, with 0 `retryable` and 0 `review`.
-- The final verification manifest SHA-256 is `c88cca038060f8dc0bbcbdfaeb243ec9bcd81cfa7872ebc51f9bb11b390a4552` and report SHA-256 is `55cf76b84a90a260c2c3744653be221906006febd67b1b747861ffa395ec7373`.
-- The first calibration pass exposed and corrected false positives from one-word heading speed and non-adjacent word frequency; the final repetition heuristic detects only adjacent repeated phrases.
+- `.tools/bin/pixi run check` passes formatting, Ruff, strict mypy, 316 ordinary tests, 3 expected hardware skips, and 91.46 percent coverage.
+- Model-free integration tests encode and probe both covered and coverless M4B fixtures and prove unchanged reruns are no-ops.
+- The private chapter build includes all 156 accepted chunks with no override and reuses its validated output on rerun.
+- The chapter M4B is mono AAC at 24 kHz and 64 kbps with one chapter marker and a probed duration of 1354.200 seconds.
+- Post-encode loudness is -18.05 LUFS with -1.59 dBTP true peak, within the configured -18.0 ± 0.5 LU and -2.0 + 0.5 dB tolerances.
+- The chapter output SHA-256 is `424ae2fabcef759b2add7e4035adaa7faaaf90a2ea494b50e355e84501679404`.
+- The assembly manifest SHA-256 is `e23a17289af33e8212e5724928c02ae5b855b459235309ad45c9729e0e6182a0`, and the report SHA-256 is `99af44e4a5fdab6494f4313bb98f1e301e4778a2fc8441a12345546e182663cf`.
+- The C7 listening checkpoint is still pending and must not be described as accepted.
 
 ## Durable references
 
@@ -33,6 +30,6 @@
 
 ## Next action
 
-- Checkpoint C6 is accepted.
-- Start Milestone 7 assembly from the 156 accepted Kokoro chunks.
-- Keep Chatterbox benchmark and improvement work deferred until after checkpoint C8.
+- Open `work/c2-target-project/work/tts-investimento/media/tts-investimento-chapter-0002.m4b` in an audiobook-capable player.
+- Listen through the start, end, every structural transition, and representative joins, and confirm metadata and seeking.
+- Record the human result; only then mark checkpoint C7 accepted and proceed to Milestone 8.
