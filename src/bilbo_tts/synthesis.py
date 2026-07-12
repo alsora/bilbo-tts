@@ -126,26 +126,26 @@ def synthesize_book(
                 context.config.synthesis.settings,
                 context.config.synthesis.max_retries,
             )
+            # _generate_chunk validated and persisted this outcome, so it is
+            # authoritative for the manifest without re-reading every WAV.
             if isinstance(result, GenerationRecord):
                 generated_count += 1
+                current[chunk.chunk_id] = (result, None)
             else:
                 run_failures.append(result)
+                current[chunk.chunk_id] = (None, result)
 
-    refreshed = {
-        chunk.chunk_id: _read_current_state(store, chunk, identities[chunk.chunk_id])
-        for chunk in chunks.chunks
-    }
     records = tuple(
-        record for chunk in chunks.chunks if (record := refreshed[chunk.chunk_id][0]) is not None
+        record for chunk in chunks.chunks if (record := current[chunk.chunk_id][0]) is not None
     )
     failures = tuple(
         failure
         for chunk in chunks.chunks
-        if refreshed[chunk.chunk_id][0] is None
-        and (failure := refreshed[chunk.chunk_id][1]) is not None
+        if current[chunk.chunk_id][0] is None
+        and (failure := current[chunk.chunk_id][1]) is not None
     )
     missing = tuple(
-        chunk.chunk_id for chunk in chunks.chunks if refreshed[chunk.chunk_id] == (None, None)
+        chunk.chunk_id for chunk in chunks.chunks if current[chunk.chunk_id] == (None, None)
     )
     manifest = GenerationManifest(
         book_id=chunks.book_id,

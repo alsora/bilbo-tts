@@ -8,17 +8,20 @@ from pathlib import Path
 import pytest
 import yaml
 
+from bilbo_tts import synthesis
 from bilbo_tts.artifacts import ArtifactStore
 from bilbo_tts.config import SynthesisConfig, VoiceConfig
 from bilbo_tts.models import (
     BreakKind,
     ChunkManifest,
     ChunkRecord,
+    GenerationFailure,
     GenerationManifest,
     GenerationRecord,
     NormalizedBlock,
     NormalizedDocument,
     PauseMetadata,
+    SynthesisIdentity,
     SynthesisSettings,
 )
 from bilbo_tts.qualification.candidates import TtsCandidateConfig
@@ -253,6 +256,30 @@ def test_failures_are_bounded_persisted_and_failed_only_recovers(tmp_path: Path)
     assert recovered.generated_count == 1
     assert len(load_manifest(store).records) == 2
     assert load_manifest(store).failures == ()
+
+
+def test_each_chunk_state_is_validated_once_per_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, config, store = make_project(tmp_path, texts=("Uno.", "Due.", "Tre."))
+    reads: list[str] = []
+    original = synthesis._read_current_state
+
+    def counting(
+        store: ArtifactStore,
+        chunk: ChunkRecord,
+        identity: SynthesisIdentity,
+    ) -> tuple[GenerationRecord | None, GenerationFailure | None]:
+        reads.append(chunk.chunk_id)
+        return original(store, chunk, identity)
+
+    monkeypatch.setattr(synthesis, "_read_current_state", counting)
+    summary = synthesize_book(config, root, engine_factory=fake_factory)
+
+    assert summary.generated_count == 3
+    assert sorted(reads) == ["chunk-1", "chunk-2", "chunk-3"]
+    assert len(load_manifest(store).records) == 3
 
 
 def test_retries_vary_the_seed_and_recover_deterministic_failures(tmp_path: Path) -> None:
