@@ -12,7 +12,7 @@ Every milestone uses the smallest relevant set of these verification levels:
 - **Integration checks:** run CLI stages against tiny fixture books without downloading large models.
 - **Hardware checks:** opt-in local MLX/MPS tests for TTS and ASR; these are not part of ordinary CI.
 - **Quality checks:** fixed Italian regression excerpts, objective metrics, and explicit listening review.
-- **End-to-end checks:** one representative chapter before full-book generation.
+- **End-to-end checks:** one representative chapter before the selected production scope.
 
 Milestones C0 and C1 do not require content-stage integration tests because no content-processing CLI stage exists yet.
 Milestone C2 establishes the reusable integration-test harness and committed file-based source fixtures used by later stages.
@@ -28,7 +28,7 @@ flowchart LR
     gate4 --> gate5["C5 Resumable synthesis"]
     gate5 --> gate6["C6 Calibrated verification"]
     gate6 --> gate7["C7 Valid chaptered M4B"]
-    gate7 --> gate8["C8 Full-book qualification"]
+    gate7 --> gate8["C8 Five-chapter qualification"]
 ```
 
 ## Milestone 0 — Reproducible environment
@@ -195,25 +195,30 @@ Checkpoint C7:
 
 - Listen through the representative chapter M4B, checking its start and end, every structural transition, representative joins, metadata, seeking, and playback in an audiobook-capable player.
 
-## Milestone 8 — Full-book qualification
+## Milestone 8 — Five-chapter production qualification
 
 Build:
 
 - Add idempotent orchestration across the existing stages without introducing a separate workflow engine.
 - Document bootstrap, book configuration, lexicon editing, selective regeneration, review decisions, assembly, cache cleanup, and interruption recovery.
 - Preserve model license and revision, voice provenance, configuration, manifests, and reports with the final build.
+- Qualify only source chapters 2–6, whose stable identifiers are `chapter-0002`, `chapter-0003`, `chapter-0004`, `chapter-0005`, and `chapter-0006`.
+- Produce one chaptered M4B containing those five chapters in source order rather than five independent chapter files or a whole-book M4B.
+- Keep ingestion, normalization, and chunking manifests book-wide while applying text review, completeness, synthesis, verification, assembly, and listening gates to the selected five-chapter scope.
 
 Verify:
 
-- Run the representative chapter from a clean workspace and rerun it to prove idempotency.
-- Perform a full-book text-only dry run and review chapter counts, warnings, unresolved tokens, chunk outliers, and estimated duration.
-- Generate and verify the full book with zero missing, stale, failed, or unreviewed chunks.
-- Validate loudness, chapters, metadata, duration, checksums, and playback.
-- Listen to every flagged chunk and random samples from every chapter.
+- Run the selected five-chapter text-only qualification and review its chapter count, warnings, unresolved tokens, chunk outliers, forced splits, and estimated duration.
+- Generate and verify every chunk in the selected scope with zero selected missing, stale, failed, retryable, or unreviewed chunks.
+- Rerun the exact selected-scope command after interruption and after completion to prove resumability and idempotent reuse.
+- Validate that the single M4B contains exactly five ordered chapter markers and satisfies metadata, duration, loudness, true-peak, checksum, and playback requirements.
+- Listen to every selected-scope chunk flagged by text or verification evidence and sample audio throughout each of the five selected chapters.
+- Build the deterministic content-addressed delivery bundle only from a clean tracked working tree and verify its manifest and member checksums.
 
 Checkpoint C8:
 
-- Deliver the M4B with the locked environment, source/configuration hashes, model and voice provenance, manifests, verification report, and exact reproducible build command.
+- Deliver the five-chapter M4B with the locked environment, source and configuration hashes, model, license, and voice provenance, book-wide text manifests, selected-scope reports, and the exact reproducible build command.
+- Keep C8 awaiting human listening approval until the operator completes and records the selected-scope listening checklist.
 
 ## Deferred scope
 

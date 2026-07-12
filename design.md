@@ -66,6 +66,57 @@ This permits a lexicon edit to retain cached audio for chunks whose spoken text 
 Presentation metadata such as title, author, narrator, subtitle, and cover does not contribute to the synthesis cache key.
 Merely skipping an existing filename is unsafe after a lexicon or model change.
 
+### Chapter scope and orchestration
+
+Chapter selection is a repeatable `--chapter` option shared by `run`, `synthesize`, `verify`, and `assemble`.
+An omitted selection means every chapter represented in the chunk manifest.
+An explicit selection must be non-empty, unique, ordered exactly as the manifest, and contiguous in manifest order.
+Unknown, duplicate, reversed, or gapped chapter selections fail before model loading.
+The validated ordered selection is propagated unchanged through synthesis, verification, assembly, reports, and the build manifest.
+
+`bilbo run` performs ingestion, normalization, and chunking first so their canonical manifests continue to describe the complete configured book.
+It then qualifies only the selected chapter scope and stops there when `--text-only` is supplied.
+A full run starts synthesis in the selected TTS candidate's Pixi environment, runs verification through an ASR child followed by any TTS retry child, assembles in the model-free base environment, and finally publishes the build bundle.
+The coordinator waits for each model process to exit before starting the next model family so TTS and ASR never share unified memory.
+Every stage reuses valid content-addressed evidence, and rerunning the same command after interruption is the supported recovery path.
+
+The `text-only-summary/v1` and `reports/text-only-qualification.md` contracts report selected chapter counts, blocks, words, chunks, selected warnings, unresolved tokens, forced splits, chunk outliers, and estimated duration.
+The deterministic speech estimate counts selected spoken-text words at exactly 150 words per minute and adds every configured selected-scope chunk pause.
+Book-wide extraction exclusions and document-level warnings remain visible because the underlying source and text manifests are book-wide.
+Text-only qualification loads no TTS or ASR model and does not create media or a delivery bundle.
+
+### Verification and assembly scope
+
+Each selected verification pass writes one `verification-manifest/v2` in complete chunk-manifest order.
+The pass replaces evidence for selected chunks and merges any reusable cached attempt for an unselected chunk only when its generation checksum, verification configuration, and current audio still match.
+Stale unselected records are not carried forward merely because an older manifest contained them.
+The readable verification report and completion counts apply to the selected scope, while the merged manifest remains usable by later contiguous runs.
+
+`assembly-manifest/v2` represents a plural ordered scope through `scope_chapter_ids`, ordered chapter markers, and the exact ordered chunk inputs on one shared timeline.
+Its scope must match its chapter markers exactly, and its upstream checksums bind the assembly to the book-wide document, chunk, generation, and merged verification manifests.
+A one-chapter selection produces `media/<book-id>-<chapter-id>.m4b`.
+A multi-chapter selection produces `media/<book-id>-<first-chapter-id>-to-<last-chapter-id>.m4b`.
+An unscoped direct `assemble` command retains `media/<book-id>.m4b`, while `bilbo run` always forwards its explicit validated chapter tuple.
+
+### Build bundle and license provenance
+
+Production TTS candidates and every ASR candidate declare model license metadata as an SPDX identifier plus an authoritative HTTPS source URL.
+A non-fake candidate with a pinned code revision also declares code license metadata, and code license metadata is invalid without a code revision.
+The build manifest preserves the TTS and ASR model identities, revisions, backends, code revision where applicable, model and code licenses, and voice identity or owned reference checksum.
+
+A delivery bundle may be published only when the repository HEAD resolves to the expected repository root and the tracked working tree has no staged, modified, or deleted files.
+Untracked files do not by themselves violate this clean-tracked-tree check, but every required untracked book input is still checksum-validated before copying.
+This requirement binds code behavior to one committed Git identity and intentionally prevents a dirty implementation from being represented by an unrelated commit.
+
+The exact required bundle members are the final M4B, `environment/pixi.lock`, the book, TTS, and ASR configurations, the built-in finance lexicon, every configured lexicon overlay, the book-document, normalized-document, chunk, generation, verification, and assembly manifests, and the extraction, normalization, chunking, text-qualification, synthesis, verification, and assembly reports.
+The configured cover and owned voice reference are included only when present.
+The source tree, individual chunk WAVs, verification-attempt sidecars, model caches, and `reports/run.md` are not bundle members.
+`build-manifest.json` records the selected ordered chapters, source and configuration identities, repository HEAD, model, license, and voice provenance, the exact reproducible `bilbo run` argument vector, and a sorted path, role, and SHA-256 record for every copied member.
+
+The canonical `build-manifest/v1` payload hash names the bundle as `deliverables/build-<sha256>`.
+Publication copies into a temporary sibling directory, verifies every copied checksum, writes canonical JSON, and atomically renames the complete directory.
+An existing bundle is reused only when its manifest bytes, exact file set, and every member checksum match, while missing, extra, changed, or symlinked members fail validation.
+
 ## Source ingestion policy
 
 LaTeX ingestion runs the pinned Pandoc executable against the configured entry point and recursively expands ordinary `\input`, `\include`, and static `\import` files below the source directory.
@@ -113,7 +164,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - [`src/bilbo_tts/verification.py`](src/bilbo_tts/verification.py): shared deterministic edit scoring and alignment, repetition/truncation and audio-duration heuristics, bounded retries, and a machine-readable review queue.
 - [`src/bilbo_tts/assembly.py`](src/bilbo_tts/assembly.py): concatenate lossless PCM with sentence/paragraph/chapter pauses, run two-pass `ffmpeg loudnorm`, create FFMETADATA chapter markers, and encode AAC only once into `.m4b`.
 - Assembly converts stored pause milliseconds to frames at the generated audio rate, places each chapter marker at the beginning of its chapter pause, and rejects mixed sample rates instead of resampling.
-- Full-book media is written to `work/<book-id>/media/<book-id>.m4b`, while chapter-scoped checkpoint media includes the stable chapter identifier.
+- Unscoped media is written to `work/<book-id>/media/<book-id>.m4b`, while one-chapter and contiguous multi-chapter media include the stable chapter identifier or first-to-last chapter range.
 - The final-media manifest records exact input and output checksums, normalized FFmpeg and FFprobe commands and versions, sample-accurate chapter ranges, all loudness measurements, and probed container metadata.
 - Final media uses mono AAC at the configured bitrate, maps title/author/subtitle/narrator to stable M4B tags, and optionally attaches the configured JPEG or PNG cover.
 - The loudness second pass reserves the configured true-peak tolerance as AAC headroom, then validates the encoded stream against the user-facing target and tolerance.
