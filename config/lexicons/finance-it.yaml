@@ -25,6 +25,14 @@ entries:
     case_sensitive: true
     word_boundaries: true
     notes: Exchange-traded fund.
+  - entry_id: acronimo-inps
+    mode: literal
+    pattern: INPS
+    spoken: inps
+    priority: 100
+    case_sensitive: true
+    word_boundaries: true
+    notes: Istituto nazionale della previdenza sociale; pronounced as a word.
   - entry_id: loanword-benchmark
     mode: literal
     pattern: benchmark

@@ -46,6 +46,7 @@ def lexicons() -> LoadedLexicons:
         ("Valore -5 e 1,25.", "Valore meno cinque e uno virgola venticinque."),
         ("È il 3º anno.", "È il terzo anno."),
         ("ETF, BCE, BTP e drawdown.", "et effe, bi ci e, bi ti pi e dròdaun."),
+        ("L’INPS gestisce la previdenza.", "L’inps gestisce la previdenza."),
         ("Un PDF.", "Un pi di effe."),
         ("Il dott. Bianchi, ecc.", "Il dottor Bianchi, eccetera"),
     ],
@@ -74,6 +75,19 @@ def test_normalization_is_idempotent_and_auditable(lexicons: LoadedLexicons) -> 
         "percentage",
         "lexicon.finance-it.acronimo-etf",
     ]
+
+
+def test_reviewed_acronyms_distinguish_word_and_letter_pronunciation(
+    lexicons: LoadedLexicons,
+) -> None:
+    spoken, transformations, warnings = apply_rules("INPS ed ETF.", lexicons)
+
+    assert spoken == "inps ed et effe."
+    assert warnings == ()
+    assert {item.rule_id for item in transformations} == {
+        "lexicon.finance-it.acronimo-inps",
+        "lexicon.finance-it.acronimo-etf",
+    }
 
 
 def test_unicode_cleanup_preserves_typographic_punctuation(
