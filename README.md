@@ -471,6 +471,7 @@ Three committed experimental Chatterbox variants exist for speed evaluation agai
 `chatterbox-turbo` samples without classifier-free guidance through the upstream batch-1 turbo path.
 The dtype and sampler experiments require the built-in voice.
 None of them changes the pinned production default until its adoption is recorded in `design.md`.
+The measured evidence behind these variants, the thermal-throttling measurement methodology, and the `scripts/ab_timing.py` comparison tool are documented in [`performance.md`](performance.md).
 The default development environment can run the deterministic fake candidate without importing or downloading a model.
 The qualified default is Chatterbox Multilingual V3 with its pinned built-in voice.
 The qualified fallback is Kokoro-82M with Italian voice `if_sara`.
