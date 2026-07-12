@@ -8,22 +8,28 @@ from pydantic import ValidationError
 from bilbo_tts.models import (
     AlignmentEdit,
     AppliedTransformation,
+    AssemblyInputRecord,
+    AssemblyManifest,
     BackendIdentity,
     BlockKind,
     BookDocument,
     BreakKind,
     ChapterDocument,
+    ChapterMarker,
     ChunkManifest,
     ChunkRecord,
     ContractModel,
     DocumentBlock,
     GenerationManifest,
     GenerationRecord,
+    LoudnessMeasurement,
     ManualReviewDecision,
+    MediaCommand,
     ModelIdentity,
     NormalizedBlock,
     NormalizedDocument,
     PauseMetadata,
+    ProbedMedia,
     ReviewStatus,
     SourceFormat,
     SourceLocation,
@@ -47,6 +53,7 @@ def make_manifests() -> tuple[
     ChunkManifest,
     GenerationManifest,
     VerificationManifest,
+    AssemblyManifest,
 ]:
     book = BookDocument(
         book_id="finance-book",
@@ -172,7 +179,59 @@ def make_manifests() -> tuple[
             ),
         ),
     )
-    return book, normalized, chunks, generations, verification
+    assembly = AssemblyManifest(
+        book_id=book.book_id,
+        book_document_sha256=HASH_A,
+        chunk_manifest_sha256=HASH_B,
+        generation_manifest_sha256=HASH_C,
+        verification_manifest_sha256=HASH_A,
+        assembly_input_sha256=HASH_B,
+        sample_rate_hz=24_000,
+        total_frame_count=88_800,
+        inputs=(
+            AssemblyInputRecord(
+                chunk_id=chunk.chunk_id,
+                sequence=chunk.sequence,
+                generation_sha256=canonical_sha256(generation_record),
+                output_path=generation_record.output_path,
+                output_sha256=generation_record.output_sha256,
+                audio_frame_count=52_800,
+                pause_frame_count=36_000,
+                start_frame=0,
+            ),
+        ),
+        chapters=(
+            ChapterMarker(
+                chapter_id="chapter-1",
+                title="Capitolo uno",
+                start_frame=0,
+                end_frame=88_800,
+            ),
+        ),
+        commands=(MediaCommand(tool="ffmpeg", version="ffmpeg 8.1", argv=("-i", "input.wav")),),
+        loudness=(
+            LoudnessMeasurement(
+                phase="output",
+                integrated_lufs=-18,
+                true_peak_db=-2,
+                loudness_range_lu=1,
+                threshold_lufs=-28,
+                target_offset_lu=0,
+            ),
+        ),
+        output_path="media/finance-book.m4b",
+        output_sha256=HASH_C,
+        media=ProbedMedia(
+            codec_name="aac",
+            channels=1,
+            sample_rate_hz=24_000,
+            duration_ms=3700,
+            tags={"title": "Finanza"},
+            cover_art=False,
+            chapter_count=1,
+        ),
+    )
+    return book, normalized, chunks, generations, verification, assembly
 
 
 @pytest.mark.parametrize("manifest", make_manifests())
@@ -202,7 +261,7 @@ def test_unknown_contract_fields_are_rejected() -> None:
 
 
 def test_manual_verification_decision_is_explicit_and_status_bound() -> None:
-    record = make_manifests()[-1].records[0]
+    record = make_manifests()[-2].records[0]
     decision = ManualReviewDecision(
         action="accept",
         reviewer="human-reviewer",

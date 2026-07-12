@@ -111,6 +111,11 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - [`src/bilbo_tts/asr/`](src/bilbo_tts/asr/): a narrow transcription interface with an MLX-Whisper implementation.
 - [`src/bilbo_tts/verification.py`](src/bilbo_tts/verification.py): shared deterministic edit scoring and alignment, repetition/truncation and audio-duration heuristics, bounded retries, and a machine-readable review queue.
 - [`src/bilbo_tts/assembly.py`](src/bilbo_tts/assembly.py): concatenate lossless PCM with sentence/paragraph/chapter pauses, run two-pass `ffmpeg loudnorm`, create FFMETADATA chapter markers, and encode AAC only once into `.m4b`.
+- Assembly converts stored pause milliseconds to frames at the generated audio rate, places each chapter marker at the beginning of its chapter pause, and rejects mixed sample rates instead of resampling.
+- Full-book media is written to `work/<book-id>/media/<book-id>.m4b`, while chapter-scoped checkpoint media includes the stable chapter identifier.
+- The final-media manifest records exact input and output checksums, normalized FFmpeg and FFprobe commands and versions, sample-accurate chapter ranges, all loudness measurements, and probed container metadata.
+- Final media uses mono AAC at the configured bitrate, maps title/author/subtitle/narrator to stable M4B tags, and optionally attaches the configured JPEG or PNG cover.
+- Assembly publishes media atomically only after post-encode loudness measurement and FFprobe validation satisfy the configured duration, loudness, true-peak, stream, metadata, cover, and chapter requirements.
 - [`books/<book-id>/book.yaml`](books/<book-id>/book.yaml): input, title/author, a model config path selecting one candidate under `config/qualification/`, retry policy, thresholds, pause durations, loudness target, and cover settings.
 - A book never duplicates model identity, voice, or generation settings; the referenced candidate file owns them, so books switch models by changing one repository-relative path.
 - `work/<book-id>/`: ignored derived manifests, chunk WAVs, transcripts, reports, and final media. Inputs and reusable configuration remain versioned.
@@ -152,6 +157,7 @@ Their standard outputs are deterministic `normalize-summary/v1` and `chunk-summa
 - Verification runs each ASR pass in a child process that exits before one engine-specific TTS retry process starts, so the two model families are never resident together.
 - Manual accept or regenerate decisions require a reviewer and note, bind to the exact generation checksum, and become stale when audio changes.
 - Assembly should consume only accepted chunks by default; an explicit override may include reviewed exceptions.
+- An assembly override requires an audit note and records every included non-accepted or unverified chunk, but it never permits missing, failed, corrupt, wrong-format, mixed-rate, or stale inputs.
 
 ## Implementation and verification
 

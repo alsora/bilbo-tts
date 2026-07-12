@@ -6,6 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from bilbo_tts import cli
+from bilbo_tts.assembly import AssembleSummary, AssemblyError
 from bilbo_tts.chunk_service import ChunkSummary
 from bilbo_tts.chunking import ChunkingError
 from bilbo_tts.doctor import EnvironmentReport
@@ -38,6 +39,7 @@ def _report(*, healthy: bool = True) -> EnvironmentReport:
             "python": "/project/.pixi/envs/default/bin/python",
             "pixi": "/project/.tools/bin/pixi",
             "ffmpeg": "/project/.pixi/envs/default/bin/ffmpeg",
+            "ffprobe": "/project/.pixi/envs/default/bin/ffprobe",
             "pandoc": "/project/.pixi/envs/default/bin/pandoc",
             "libsndfile": "libsndfile.dylib",
         },
@@ -60,6 +62,7 @@ def test_doctor_prints_readable_report(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0
     assert "Status: healthy" in result.stdout
     assert "ffmpeg: /project/.pixi/envs/default/bin/ffmpeg" in result.stdout
+    assert "ffprobe: /project/.pixi/envs/default/bin/ffprobe" in result.stdout
     assert "mlx_installed: False" in result.stdout
 
 
@@ -388,6 +391,66 @@ def test_verify_review_status_exits_nonzero(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert result.exit_code == 1
     assert json.loads(result.stdout)["status"] == "review"
+
+
+def test_assemble_prints_summary_and_forwards_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = AssembleSummary(
+        status="completed",
+        book_id="book",
+        selected_count=2,
+        reused=False,
+        output_path="media/book-chapter-1.m4b",
+        output_sha256="a" * 64,
+        assembly_manifest_path="manifests/assembly-manifest.json",
+        assembly_manifest_sha256="b" * 64,
+        report_path="reports/assembly.md",
+        report_sha256="c" * 64,
+    )
+    arguments: dict[str, object] = {}
+
+    def assemble(_config: object, _root: object, **kwargs: object) -> AssembleSummary:
+        arguments.update(kwargs)
+        return summary
+
+    monkeypatch.setattr(cli, "assemble_book", assemble)
+    result = runner.invoke(
+        cli.app,
+        [
+            "assemble",
+            "books/book/book.yaml",
+            "--chapter",
+            "chapter-1",
+            "--allow-unaccepted",
+            "--override-note",
+            "Reviewed for this build.",
+            "--force",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == summary.model_dump(mode="json")
+    assert arguments == {
+        "chapter": "chapter-1",
+        "allow_unaccepted": True,
+        "override_note": "Reviewed for this build.",
+        "force": True,
+    }
+
+
+def test_assemble_prints_json_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(*_args: object, **_kwargs: object) -> None:
+        raise AssemblyError("audio is not accepted")
+
+    monkeypatch.setattr(cli, "assemble_book", fail)
+
+    result = runner.invoke(cli.app, ["assemble", "books/book/book.yaml"])
+
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == {
+        "schema_version": "assemble-summary/v1",
+        "status": "failed",
+        "error": "audio is not accepted",
+    }
 
 
 def test_review_verification_requires_auditable_decision(

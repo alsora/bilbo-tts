@@ -20,6 +20,7 @@ def test_collect_environment_reports_project_managed_tools(
     executable_paths = {
         "pixi": tmp_path / ".tools/bin/pixi",
         "ffmpeg": bin_directory / "ffmpeg",
+        "ffprobe": bin_directory / "ffprobe",
         "pandoc": bin_directory / "pandoc",
     }
     monkeypatch.setattr(sys, "executable", str(bin_directory / "python"))

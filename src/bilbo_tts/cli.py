@@ -9,6 +9,7 @@ from typing import Annotated, Literal, Never, cast
 import typer
 
 from bilbo_tts.artifacts import ArtifactError
+from bilbo_tts.assembly import AssemblyError, assemble_book
 from bilbo_tts.chunk_service import chunk_book
 from bilbo_tts.chunking import ChunkingError
 from bilbo_tts.config import ConfigurationError
@@ -266,6 +267,54 @@ def verify(
     typer.echo(canonical_json_bytes(summary).decode("utf-8"))
     if summary.status != "completed":
         raise typer.Exit(code=1)
+
+
+@app.command()
+def assemble(
+    config: ConfigArgument,
+    project_root: ProjectRootOption = Path("."),
+    chapter: Annotated[
+        str | None,
+        typer.Option("--chapter", help="Assemble only this stable chapter identifier."),
+    ] = None,
+    allow_unaccepted: Annotated[
+        bool,
+        typer.Option(
+            "--allow-unaccepted",
+            help="Include current generated audio that is not accepted.",
+        ),
+    ] = False,
+    override_note: Annotated[
+        str | None,
+        typer.Option(
+            "--override-note",
+            help="Required audit note when including unaccepted audio.",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Re-encode an otherwise valid assembly."),
+    ] = False,
+) -> None:
+    """Assemble verified chunks into a validated chaptered M4B."""
+
+    try:
+        summary = assemble_book(
+            config,
+            project_root,
+            chapter=chapter,
+            allow_unaccepted=allow_unaccepted,
+            override_note=override_note,
+            force=force,
+        )
+    except (
+        ArtifactError,
+        AssemblyError,
+        ConfigurationError,
+        StageError,
+    ) as error:
+        _fail_stage("assemble-summary/v1", error)
+    typer.echo(canonical_json_bytes(summary).decode("utf-8"))
 
 
 @app.command("verify-pass", hidden=True)

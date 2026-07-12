@@ -216,6 +216,9 @@ class AssemblyConfig(ContractModel):
     pauses: PauseConfig = PauseConfig()
     loudness_lufs: float = Field(default=-18.0, ge=-70, le=-5)
     true_peak_db: float = Field(default=-2.0, ge=-10, le=0)
+    loudness_tolerance_lu: float = Field(default=0.5, gt=0, le=3)
+    true_peak_tolerance_db: float = Field(default=0.5, ge=0, le=3)
+    aac_bitrate_kbps: int = Field(default=64, ge=32, le=320)
 
 
 class BookConfig(ContractModel):

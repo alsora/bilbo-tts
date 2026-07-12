@@ -484,6 +484,115 @@ class VerificationManifest(ContractModel):
         return records
 
 
+class AssemblyInputRecord(ContractModel):
+    """One exact generated WAV and its position in the assembled timeline."""
+
+    chunk_id: Identifier
+    sequence: int = Field(ge=0)
+    generation_sha256: Sha256
+    output_path: NonEmptyText
+    output_sha256: Sha256
+    audio_frame_count: int = Field(gt=0)
+    pause_frame_count: int = Field(ge=0)
+    start_frame: int = Field(ge=0)
+
+
+class ChapterMarker(ContractModel):
+    """Sample-accurate chapter range written to the final container."""
+
+    chapter_id: Identifier
+    title: NonEmptyText
+    start_frame: int = Field(ge=0)
+    end_frame: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def end_follows_start(self) -> Self:
+        if self.end_frame <= self.start_frame:
+            raise ValueError("chapter end_frame must follow start_frame")
+        return self
+
+
+class MediaCommand(ContractModel):
+    """Auditable normalized media-tool invocation."""
+
+    tool: Literal["ffmpeg", "ffprobe"]
+    version: NonEmptyText
+    argv: tuple[NonEmptyText, ...]
+
+    @field_validator("argv")
+    @classmethod
+    def argv_is_not_empty(cls, argv: tuple[str, ...]) -> tuple[str, ...]:
+        if not argv:
+            raise ValueError("media command argv must not be empty")
+        return argv
+
+
+class LoudnessMeasurement(ContractModel):
+    """One EBU R128 measurement reported by FFmpeg loudnorm."""
+
+    phase: Literal["analysis", "normalization", "output"]
+    integrated_lufs: float = Field(ge=-120, le=20, allow_inf_nan=False)
+    true_peak_db: float = Field(ge=-120, le=20, allow_inf_nan=False)
+    loudness_range_lu: float = Field(ge=0, le=120, allow_inf_nan=False)
+    threshold_lufs: float = Field(ge=-120, le=20, allow_inf_nan=False)
+    target_offset_lu: float = Field(ge=-120, le=120, allow_inf_nan=False)
+
+
+class ProbedMedia(ContractModel):
+    """Validated properties read from the encoded M4B."""
+
+    codec_name: NonEmptyText
+    channels: int = Field(gt=0)
+    sample_rate_hz: int = Field(gt=0)
+    duration_ms: int = Field(gt=0)
+    tags: dict[str, str] = Field(default_factory=dict)
+    cover_art: bool
+    chapter_count: int = Field(ge=0)
+
+
+class AssemblyManifest(ContractModel):
+    """Auditable final-media build bound to exact upstream artifacts."""
+
+    schema_version: Literal["assembly-manifest/v1"] = "assembly-manifest/v1"
+    book_id: Identifier
+    scope_chapter_id: Identifier | None = None
+    book_document_sha256: Sha256
+    chunk_manifest_sha256: Sha256
+    generation_manifest_sha256: Sha256
+    verification_manifest_sha256: Sha256
+    assembly_input_sha256: Sha256
+    sample_rate_hz: int = Field(gt=0)
+    total_frame_count: int = Field(gt=0)
+    inputs: tuple[AssemblyInputRecord, ...]
+    chapters: tuple[ChapterMarker, ...]
+    unaccepted_chunk_ids: tuple[Identifier, ...] = ()
+    override_note: NonEmptyText | None = None
+    commands: tuple[MediaCommand, ...]
+    loudness: tuple[LoudnessMeasurement, ...]
+    output_path: NonEmptyText
+    output_sha256: Sha256
+    media: ProbedMedia
+
+    @model_validator(mode="after")
+    def timeline_and_override_are_consistent(self) -> Self:
+        _require_unique((record.chunk_id for record in self.inputs), "assembly input chunk_id")
+        _require_unique((chapter.chapter_id for chapter in self.chapters), "chapter marker id")
+        if not self.inputs:
+            raise ValueError("assembly inputs must not be empty")
+        if not self.chapters:
+            raise ValueError("assembly chapters must not be empty")
+        if bool(self.unaccepted_chunk_ids) != bool(self.override_note):
+            raise ValueError("unaccepted chunks and override_note must be provided together")
+        if self.chapters[0].start_frame != 0:
+            raise ValueError("first chapter must start at frame zero")
+        if self.chapters[-1].end_frame != self.total_frame_count:
+            raise ValueError("last chapter must end at total_frame_count")
+        for previous, current in zip(self.chapters, self.chapters[1:], strict=False):
+            if previous.end_frame != current.start_frame:
+                raise ValueError("chapter markers must be contiguous")
+        return self
+
+
 def _require_unique(values: Iterable[str], label: str) -> None:
     materialized = list(values)
     if len(materialized) != len(set(materialized)):

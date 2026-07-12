@@ -55,10 +55,11 @@ def collect_environment(
         "python": sys.executable,
         "pixi": shutil.which("pixi") or (str(project_pixi) if project_pixi.is_file() else None),
         "ffmpeg": shutil.which("ffmpeg"),
+        "ffprobe": shutil.which("ffprobe"),
         "pandoc": shutil.which("pandoc"),
         "libsndfile": ctypes.util.find_library("sndfile"),
     }
-    required_tools = ("python", "ffmpeg", "pandoc")
+    required_tools = ("python", "ffmpeg", "ffprobe", "pandoc")
     healthy = all(_managed_path(tools[name], project_root) for name in required_tools)
     is_apple_silicon = platform.system() == "Darwin" and platform.machine() == "arm64"
 
